@@ -2,13 +2,12 @@ import MiniConsole from './miniconsole';
 import ThreeScene from './threescene';
 import TouchController from './touchcontroller';
 
-import { Vector3 } from 'three';
 
 class App {
     constructor() {
         new MiniConsole();
         this.lastTime = 0;
-         this.ts = new ThreeScene();
+        this.ts = new ThreeScene();
         this.controller = new TouchController();
 
         this.resize()

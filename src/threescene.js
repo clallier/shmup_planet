@@ -1,6 +1,9 @@
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Scene, WebGLRenderer, PerspectiveCamera, PCFSoftShadowMap, DirectionalLight, AmbientLight, HemisphereLight } from 'three';
+import { Scene, WebGLRenderer, PerspectiveCamera, PCFSoftShadowMap, DirectionalLight, AmbientLight, HemisphereLight, Vector3, ShaderMaterial } from 'three';
 import { WEBGL } from 'three/examples/jsm/WebGL.js';
+import { MeshBasicMaterial, Mesh, IcosahedronGeometry } from 'three';
+import fragment from './shaders/fragment.glsl';
+import vertex from './shaders/vertex.glsl';
 
 export default class ThreeScene {
     constructor() {
@@ -9,15 +12,17 @@ export default class ThreeScene {
         }
 
         this.canvas = document.querySelector('#canvas');
-        const context = this.canvas.getContext('webgl2', { alpha: true });
-        this.renderer = new WebGLRenderer({ canvas: this.canvas, context });
+        // const context = this.canvas.getContext('webgl2', { alpha: true });
+        this.renderer = new WebGLRenderer({ canvas: this.canvas /*, context*/ });
+        this.renderer.premultipliedAlpha = false;
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = PCFSoftShadowMap;
 
 
         this.camera = new PerspectiveCamera(75, 2, 0.1, 1000);
+        this.camera.position.x = 0;
         this.camera.position.y = 8;
-        this.camera.position.z = -8;
+        this.camera.position.z = 8;
 
         this.control = new OrbitControls(this.camera, this.canvas);
         this.control.enabled = true;
@@ -35,6 +40,19 @@ export default class ThreeScene {
         
         for (let i = 0; i < this.lights.length; i++)
             this.scene.add(this.lights[i]);
+
+        // create a wireframe material
+        const material = new ShaderMaterial( {
+            vertexShader: vertex,
+            fragmentShader: fragment
+        } );
+
+        // create a sphere and assign the material
+        const mesh = new Mesh(
+            new IcosahedronGeometry( 2, 4 ),
+            material
+        );
+        this.scene.add( mesh );
 
     }
 
