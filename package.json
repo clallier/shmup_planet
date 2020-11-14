@@ -1,0 +1,22 @@
+{
+  "name": "shmup_planet",
+  "version": "1.0.0",
+  "main": "src/main.js",
+  "author": "godjam <corentin.lallier@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.122.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^16.0.0",
+    "@rollup/plugin-json": "^4.1.0",
+    "@rollup/plugin-node-resolve": "^10.0.0",
+    "rollup": "^2.33.2",
+    "rollup-plugin-copy": "^3.3.0",
+    "rollup-plugin-serve": "^1.1.0"
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c -w"
+  }
+}
