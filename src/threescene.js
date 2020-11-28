@@ -21,8 +21,8 @@ export default class ThreeScene {
 
         this.camera = new PerspectiveCamera(75, 2, 0.1, 1000);
         this.camera.position.x = 0;
-        this.camera.position.y = 8;
-        this.camera.position.z = 8;
+        this.camera.position.y = 0;
+        this.camera.position.z = 100;
 
         this.control = new OrbitControls(this.camera, this.canvas);
         this.control.enabled = true;
@@ -31,32 +31,39 @@ export default class ThreeScene {
         this.lights = [];
         // TODO : https://threejs.org/editor/ pour setup des lights
         // this.lights.push(new AmbientLight(0xffa500, .2))
-        this.lights.push(new HemisphereLight(0xffa500, 0x4ba787, .2))
+        // this.lights.push(new HemisphereLight(0xffa500, 0x4ba787, .2))
 
-        const directionalLight = new DirectionalLight(0xffffff, 1);
-        directionalLight.position.set(0, 30, 0);
+        // const directionalLight = new DirectionalLight(0xffffff, 1);
+        // directionalLight.position.set(0, 30, 0);
 
-        this.lights.push(directionalLight);
+        // this.lights.push(directionalLight);
         
         for (let i = 0; i < this.lights.length; i++)
             this.scene.add(this.lights[i]);
 
-        // create a wireframe material
-        const material = new ShaderMaterial( {
+        // create a shader material
+        this.material = new ShaderMaterial( {
+            uniforms: {
+                // float initialized to 0
+                time: { type: "f", value: 0.0},
+            },
             vertexShader: vertex,
             fragmentShader: fragment
         } );
 
         // create a sphere and assign the material
         const mesh = new Mesh(
-            new IcosahedronGeometry( 2, 4 ),
-            material
+            new IcosahedronGeometry( 20, 6),
+            this.material
         );
         this.scene.add( mesh );
 
     }
 
-    render() {
+    render(time, delta) {
+        console.log(time)
+        this.material.uniforms[ 'time' ].value = .0001 * time;
+
         this.control.update();
         this.renderer.render(this.scene, this.camera);
     }

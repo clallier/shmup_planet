@@ -112,13 +112,18 @@ float pnoise(vec3 P,vec3 rep)
 //******************************
 //        Second part
 //******************************
+/*
+Permet de stocker UV (qui specifie quel texel lire dans une texture en x,y - normalisés entre 0 et 1) 
+varying : permet de le passer ensuite au fragment shader
+*/
 varying vec2 vUv;
 varying float noise;
+uniform float time;
 
 float turbulence( vec3 p ) {
 
   float w = 100.0;
-  float t = -.05;
+  float t = -.5;
 
   for (float f = 1.0 ; f <= 10.0 ; f++ ){
     float power = pow(2.0, f);
@@ -135,16 +140,29 @@ float turbulence( vec3 p ) {
 void main() {
 
   vUv = uv;
-
-  // get a turbulent 3d noise using the normal, normal to high freq
-  noise = 10.0 * -.1 * turbulence(.5 * normal);
-  // get a 3d noise using the position, low frequency
-  float b = 5.0 * pnoise( 0.05 * position, vec3( 100.0 ) );
-  // compose both noises
-  float displacement = - 10. * noise + b;
+  // // get a turbulent 3d noise using the normal, normal to high freq
+  // noise = 10.0 * -.1 * turbulence(.5 * normal + time);
+  // // get a 3d noise using the position, low frequency
+  // float b = 5.0 * pnoise( 0.05 * position, vec3( 2.0 * time ) );
+  // // compose both noises
+  // float displacement = - 10. * noise + b;
 
   // move the position along the normal and transform it
-  vec3 p = position + normal * displacement;
+  float size = sin(time * 60.0);
+  float wave_x = 2. * cos(60.0 * uv.x + time * 60.0);
+  float wave_y = 2. * sin(16.0 * uv.y + time * 50.0);
+  vec3 p = position + 
+    normal * size +
+    normal * wave_y + 
+    normal * wave_x; // * displacement;
+  noise = wave_x + wave_y;
+  
+  // permet de transformer la position du vertex (en coordonnées objet)
+  // en coordonnée caméra ("eye").
+  // modelViewMatrix: mat4 (4x4) = passé au shader, utilisé pour calculer 
+  // la position de l'objet
+  // projectionMatrix: mat4 = la matrice de projection de la caméra
+  // voir https://threejs.org/docs/#api/en/renderers/webgl/WebGLProgram pour tous les uniforms
   gl_Position = projectionMatrix * modelViewMatrix * vec4( p, 1.0 );
 
 }

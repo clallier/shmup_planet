@@ -23,12 +23,12 @@ class App {
         // TODO 
         // XXXX
 
-        this.render(delta);
+        this.render(time, delta);
         requestAnimationFrame((t) => this.update(t));
     }
 
-    render(delta) {
-        this.ts.render(delta);
+    render(time, delta) {
+        this.ts.render(time, delta);
         if(this.controller) this.controller.display();
     }
 
