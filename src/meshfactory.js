@@ -1,6 +1,7 @@
 import {
     Vector3, Mesh,
     IcosahedronGeometry, RingGeometry, TetrahedronGeometry,
+    BoxGeometry,
     ShaderMaterial, MeshBasicMaterial, 
 } from "three";
 
@@ -50,6 +51,22 @@ export default class MeshFactory {
             radius, 
             0); // detail
 
+        const material = new MeshBasicMaterial({
+            color: color
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+
+        return mesh;
+    }
+
+    static createBox(
+        width = 1.0,
+        height = 1.0,
+        depth = 1.0,
+        color = 0x00ffff,
+        position = new Vector3()) {
+        const geometry = new BoxGeometry(width, height, depth);
         const material = new MeshBasicMaterial({
             color: color
         });

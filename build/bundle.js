@@ -28605,6 +28605,30 @@ Geometry.prototype = Object.assign( Object.create( EventDispatcher.prototype ), 
 
 } );
 
+class BoxGeometry extends Geometry {
+
+	constructor( width, height, depth, widthSegments, heightSegments, depthSegments ) {
+
+		super();
+
+		this.type = 'BoxGeometry';
+
+		this.parameters = {
+			width: width,
+			height: height,
+			depth: depth,
+			widthSegments: widthSegments,
+			heightSegments: heightSegments,
+			depthSegments: depthSegments
+		};
+
+		this.fromBufferGeometry( new BoxBufferGeometry( width, height, depth, widthSegments, heightSegments, depthSegments ) );
+		this.mergeVertices();
+
+	}
+
+}
+
 class PolyhedronBufferGeometry extends BufferGeometry {
 
 	constructor( vertices, indices, radius, detail ) {
@@ -46600,6 +46624,22 @@ class MeshFactory {
 
         return mesh;
     }
+
+    static createBox(
+        width = 1.0,
+        height = 1.0,
+        depth = 1.0,
+        color = 0x00ffff,
+        position = new Vector3()) {
+        const geometry = new BoxGeometry(width, height, depth);
+        const material = new MeshBasicMaterial({
+            color: color
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+
+        return mesh;
+    }
 }
 
 class ThreeScene {
@@ -46635,11 +46675,11 @@ class ThreeScene {
         // directionalLight.position.set(0, 30, 0);
 
         // this.lights.push(directionalLight);
-        
+
         for (let i = 0; i < this.lights.length; i++)
             this.scene.add(this.lights[i]);
 
-        
+
         this.planet = MeshFactory.createPlanet(vertex, fragment);
         this.scene.add(this.planet);
 
@@ -46648,6 +46688,8 @@ class ThreeScene {
 
         this.player = MeshFactory.createTetra(6);
         this.player.radius = 160;
+        this.player.attack_timer = 0.5;
+        this.player.next_attack = this.player.attack_timer; 
         this.player.angle = 0;
         this.player.min_angle = 0;
         this.player.max_angle = 2 * Math.PI;
@@ -46655,16 +46697,18 @@ class ThreeScene {
         this.player.position.z = this.player.radius;
         this.scene.add(this.player);
         document.addEventListener('keydown', (e) => {
-            if(e.code == 'ArrowLeft')
-                this.player.speed -= 0.01;
-            if(e.code == 'ArrowRight')
+            if (e.code == 'ArrowLeft')
                 this.player.speed += 0.01;
+            if (e.code == 'ArrowRight')
+                this.player.speed -= 0.01;
         });
 
         this.enemies = [];
-        for(let i=0; i<3; i++){
+        for (let i = 0; i < 3; i++) {
             const e = MeshFactory.createTetra(12);
             e.radius = 80;
+            e.attack_timer = Math.random() * 4;
+            e.next_attack = e.attack_timer; 
             e.angle = Math.random() * 2 * Math.PI;
             e.max_angle = e.angle + 2 * Math.PI;
             e.position.z = e.radius;
@@ -46674,21 +46718,35 @@ class ThreeScene {
             this.scene.add(e);
         }
 
+        this.bullets = [];
     }
 
     render(time, delta) {
         this.planet.material.uniforms['time'].value = time;
 
+        this.player.next_attack -= delta;
+
+        if(this.player.next_attack <= 0) {
+            this.player.next_attack = this.player.attack_timer;
+            const b = MeshFactory.createBox(4, 4, 4, 0x00aaaa);
+            b.velocity = new Vector3();
+            this.player.getWorldDirection(b.velocity);
+            b.velocity.setLength(2);
+            b.position.copy(this.player.position);
+            this.bullets.push(b);
+            this.scene.add(b);
+        }
+
         this.player.speed *= 0.97;
-        if(this.player.speed > 0.1)
+        if (this.player.speed > 0.1)
             this.player.speed == 0.1;
-        if(this.player.speed < -0.1)
+        if (this.player.speed < -0.1)
             this.player.speed == -0.1;
         this.player.angle += this.player.speed;
 
-        if(this.player.angle > this.player.max_angle)
+        if (this.player.angle > this.player.max_angle)
             this.player.angle -= this.player.max_angle;
-        if(this.player.angle < this.player.min_angle)
+        if (this.player.angle < this.player.min_angle)
             this.player.angle += this.player.max_angle;
 
         this.player.position.x = 0 + Math.cos(this.player.angle) * this.player.radius;
@@ -46699,9 +46757,27 @@ class ThreeScene {
         this.camera.position.z = 0 + Math.sin(this.player.angle) * (this.player.radius + 20);
         this.camera.lookAt(0, 0, 0);
 
-        for(let i=0; i<this.enemies.length; i++){
+        for (let i = 0; i < this.enemies.length; i++) {
             const e = this.enemies[i];
             e.lookAt(this.player.position);
+            e.next_attack -= delta;
+
+            if(e.next_attack <= 0) {
+                e.next_attack = e.attack_timer;
+                const b = MeshFactory.createBox(4, 4, 4);
+                b.velocity = new Vector3();
+                e.getWorldDirection(b.velocity);
+                b.velocity.setLength(2);
+                b.position.copy(e.position);
+                this.bullets.push(b);
+                this.scene.add(b);
+            }
+        }
+
+        
+        for (let i = 0; i < this.bullets.length; i++) {
+            const b = this.bullets[i];
+            b.position.add(b.velocity);
         }
 
         this.control.update();
