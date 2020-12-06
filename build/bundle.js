@@ -30849,6 +30849,141 @@ function ParametricGeometry( func, slices, stacks ) {
 ParametricGeometry.prototype = Object.create( Geometry.prototype );
 ParametricGeometry.prototype.constructor = ParametricGeometry;
 
+class RingBufferGeometry extends BufferGeometry {
+
+	constructor( innerRadius, outerRadius, thetaSegments, phiSegments, thetaStart, thetaLength ) {
+
+		super();
+
+		this.type = 'RingBufferGeometry';
+
+		this.parameters = {
+			innerRadius: innerRadius,
+			outerRadius: outerRadius,
+			thetaSegments: thetaSegments,
+			phiSegments: phiSegments,
+			thetaStart: thetaStart,
+			thetaLength: thetaLength
+		};
+
+		innerRadius = innerRadius || 0.5;
+		outerRadius = outerRadius || 1;
+
+		thetaStart = thetaStart !== undefined ? thetaStart : 0;
+		thetaLength = thetaLength !== undefined ? thetaLength : Math.PI * 2;
+
+		thetaSegments = thetaSegments !== undefined ? Math.max( 3, thetaSegments ) : 8;
+		phiSegments = phiSegments !== undefined ? Math.max( 1, phiSegments ) : 1;
+
+		// buffers
+
+		const indices = [];
+		const vertices = [];
+		const normals = [];
+		const uvs = [];
+
+		// some helper variables
+
+		let radius = innerRadius;
+		const radiusStep = ( ( outerRadius - innerRadius ) / phiSegments );
+		const vertex = new Vector3();
+		const uv = new Vector2();
+
+		// generate vertices, normals and uvs
+
+		for ( let j = 0; j <= phiSegments; j ++ ) {
+
+			for ( let i = 0; i <= thetaSegments; i ++ ) {
+
+				// values are generate from the inside of the ring to the outside
+
+				const segment = thetaStart + i / thetaSegments * thetaLength;
+
+				// vertex
+
+				vertex.x = radius * Math.cos( segment );
+				vertex.y = radius * Math.sin( segment );
+
+				vertices.push( vertex.x, vertex.y, vertex.z );
+
+				// normal
+
+				normals.push( 0, 0, 1 );
+
+				// uv
+
+				uv.x = ( vertex.x / outerRadius + 1 ) / 2;
+				uv.y = ( vertex.y / outerRadius + 1 ) / 2;
+
+				uvs.push( uv.x, uv.y );
+
+			}
+
+			// increase the radius for next row of vertices
+
+			radius += radiusStep;
+
+		}
+
+		// indices
+
+		for ( let j = 0; j < phiSegments; j ++ ) {
+
+			const thetaSegmentLevel = j * ( thetaSegments + 1 );
+
+			for ( let i = 0; i < thetaSegments; i ++ ) {
+
+				const segment = i + thetaSegmentLevel;
+
+				const a = segment;
+				const b = segment + thetaSegments + 1;
+				const c = segment + thetaSegments + 2;
+				const d = segment + 1;
+
+				// faces
+
+				indices.push( a, b, d );
+				indices.push( b, c, d );
+
+			}
+
+		}
+
+		// build geometry
+
+		this.setIndex( indices );
+		this.setAttribute( 'position', new Float32BufferAttribute( vertices, 3 ) );
+		this.setAttribute( 'normal', new Float32BufferAttribute( normals, 3 ) );
+		this.setAttribute( 'uv', new Float32BufferAttribute( uvs, 2 ) );
+
+	}
+
+}
+
+class RingGeometry extends Geometry {
+
+	constructor( innerRadius, outerRadius, thetaSegments, phiSegments, thetaStart, thetaLength ) {
+
+		super();
+
+		this.type = 'RingGeometry';
+
+		this.parameters = {
+			innerRadius: innerRadius,
+			outerRadius: outerRadius,
+			thetaSegments: thetaSegments,
+			phiSegments: phiSegments,
+			thetaStart: thetaStart,
+			thetaLength: thetaLength
+		};
+
+		this.fromBufferGeometry( new RingBufferGeometry( innerRadius, outerRadius, thetaSegments, phiSegments, thetaStart, thetaLength ) );
+		this.mergeVertices();
+
+	}
+
+}
+
 class ShapeBufferGeometry extends BufferGeometry {
 
 	constructor( shapes, curveSegments ) {
@@ -31070,6 +31205,50 @@ function toJSON$3( shapes, data ) {
 	}
 
 	return data;
+
+}
+
+class TetrahedronBufferGeometry extends PolyhedronBufferGeometry {
+
+	constructor( radius, detail ) {
+
+		const vertices = [
+			1, 1, 1, 	- 1, - 1, 1, 	- 1, 1, - 1, 	1, - 1, - 1
+		];
+
+		const indices = [
+			2, 1, 0, 	0, 3, 2,	1, 3, 0,	2, 3, 1
+		];
+
+		super( vertices, indices, radius, detail );
+
+		this.type = 'TetrahedronBufferGeometry';
+
+		this.parameters = {
+			radius: radius,
+			detail: detail
+		};
+
+	}
+
+}
+
+class TetrahedronGeometry extends Geometry {
+
+	constructor( radius, detail ) {
+
+		super();
+		this.type = 'TetrahedronGeometry';
+
+		this.parameters = {
+			radius: radius,
+			detail: detail
+		};
+
+		this.fromBufferGeometry( new TetrahedronBufferGeometry( radius, detail ) );
+		this.mergeVertices();
+
+	}
 
 }
 
@@ -46363,9 +46542,65 @@ var WEBGL = {
 
 };
 
-var fragment = "precision mediump float;varying vec2 vUv;varying float noise;void main(){gl_FragColor=vec4(noise,1.-vUv.y,vUv.x,1.);}";
+var fragment = "precision mediump float;varying vec2 vUv;varying float noise;void main(){vec4 color1=vec4(0.9,0.50,0.1,1.);vec4 color2=vec4(0.9,0.9,0.5,1.);gl_FragColor=mix(color2,color1,noise);}";
 
-var vertex = "vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}vec4 mod289(vec4 x){return x-floor(x*(1./289.))*289.;}vec4 permute(vec4 x){return mod289(((x*34.)+1.)*x);}vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-.85373472095314*r;}vec3 fade(vec3 t){return t*t*t*(t*(t*6.-15.)+10.);}float pnoise(vec3 P,vec3 rep){vec3 Pi0=mod(floor(P),rep);vec3 Pi1=mod(Pi0+vec3(1.),rep);Pi0=mod289(Pi0);Pi1=mod289(Pi1);vec3 Pf0=fract(P);vec3 Pf1=Pf0-vec3(1.);vec4 ix=vec4(Pi0.x,Pi1.x,Pi0.x,Pi1.x);vec4 iy=vec4(Pi0.yy,Pi1.yy);vec4 iz0=Pi0.zzzz;vec4 iz1=Pi1.zzzz;vec4 ixy=permute(permute(ix)+iy);vec4 ixy0=permute(ixy+iz0);vec4 ixy1=permute(ixy+iz1);vec4 gx0=ixy0*(1./7.);vec4 gy0=fract(floor(gx0)*(1./7.))-.5;gx0=fract(gx0);vec4 gz0=vec4(.5)-abs(gx0)-abs(gy0);vec4 sz0=step(gz0,vec4(0.));gx0-=sz0*(step(0.,gx0)-.5);gy0-=sz0*(step(0.,gy0)-.5);vec4 gx1=ixy1*(1./7.);vec4 gy1=fract(floor(gx1)*(1./7.))-.5;gx1=fract(gx1);vec4 gz1=vec4(.5)-abs(gx1)-abs(gy1);vec4 sz1=step(gz1,vec4(0.));gx1-=sz1*(step(0.,gx1)-.5);gy1-=sz1*(step(0.,gy1)-.5);vec3 g000=vec3(gx0.x,gy0.x,gz0.x);vec3 g100=vec3(gx0.y,gy0.y,gz0.y);vec3 g010=vec3(gx0.z,gy0.z,gz0.z);vec3 g110=vec3(gx0.w,gy0.w,gz0.w);vec3 g001=vec3(gx1.x,gy1.x,gz1.x);vec3 g101=vec3(gx1.y,gy1.y,gz1.y);vec3 g011=vec3(gx1.z,gy1.z,gz1.z);vec3 g111=vec3(gx1.w,gy1.w,gz1.w);vec4 norm0=taylorInvSqrt(vec4(dot(g000,g000),dot(g010,g010),dot(g100,g100),dot(g110,g110)));g000*=norm0.x;g010*=norm0.y;g100*=norm0.z;g110*=norm0.w;vec4 norm1=taylorInvSqrt(vec4(dot(g001,g001),dot(g011,g011),dot(g101,g101),dot(g111,g111)));g001*=norm1.x;g011*=norm1.y;g101*=norm1.z;g111*=norm1.w;float n000=dot(g000,Pf0);float n100=dot(g100,vec3(Pf1.x,Pf0.yz));float n010=dot(g010,vec3(Pf0.x,Pf1.y,Pf0.z));float n110=dot(g110,vec3(Pf1.xy,Pf0.z));float n001=dot(g001,vec3(Pf0.xy,Pf1.z));float n101=dot(g101,vec3(Pf1.x,Pf0.y,Pf1.z));float n011=dot(g011,vec3(Pf0.x,Pf1.yz));float n111=dot(g111,Pf1);vec3 fade_xyz=fade(Pf0);vec4 n_z=mix(vec4(n000,n100,n010,n110),vec4(n001,n101,n011,n111),fade_xyz.z);vec2 n_yz=mix(n_z.xy,n_z.zw,fade_xyz.y);float n_xyz=mix(n_yz.x,n_yz.y,fade_xyz.x);return 2.2*n_xyz;}/*Permet de stocker UV(qui specifie quel texel lire dans une texture en x,y-normalisés entre 0 et 1)varying : permet de le passer ensuite au fragment shader*/varying vec2 vUv;varying float noise;uniform float time;float turbulence(vec3 p){float w=100.0;float t=-.5;for(float f=1.0;f<=10.0;f++){float power=pow(2.0,f);t+=abs(pnoise(vec3(power*p),vec3(10.0))/power);}return t;}void main(){vUv=uv;float size=sin(time*60.0);float wave_x=2.*cos(60.0*uv.x+time*60.0);float wave_y=2.*sin(16.0*uv.y+time*50.0);vec3 p=position+normal*size+normal*wave_y+normal*wave_x;noise=wave_x+wave_y;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}";
+var vertex = "vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}vec4 mod289(vec4 x){return x-floor(x*(1./289.))*289.;}vec4 permute(vec4 x){return mod289(((x*34.)+1.)*x);}vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-.85373472095314*r;}vec3 fade(vec3 t){return t*t*t*(t*(t*6.-15.)+10.);}float pnoise(vec3 P,vec3 rep){vec3 Pi0=mod(floor(P),rep);vec3 Pi1=mod(Pi0+vec3(1.),rep);Pi0=mod289(Pi0);Pi1=mod289(Pi1);vec3 Pf0=fract(P);vec3 Pf1=Pf0-vec3(1.);vec4 ix=vec4(Pi0.x,Pi1.x,Pi0.x,Pi1.x);vec4 iy=vec4(Pi0.yy,Pi1.yy);vec4 iz0=Pi0.zzzz;vec4 iz1=Pi1.zzzz;vec4 ixy=permute(permute(ix)+iy);vec4 ixy0=permute(ixy+iz0);vec4 ixy1=permute(ixy+iz1);vec4 gx0=ixy0*(1./7.);vec4 gy0=fract(floor(gx0)*(1./7.))-.5;gx0=fract(gx0);vec4 gz0=vec4(.5)-abs(gx0)-abs(gy0);vec4 sz0=step(gz0,vec4(0.));gx0-=sz0*(step(0.,gx0)-.5);gy0-=sz0*(step(0.,gy0)-.5);vec4 gx1=ixy1*(1./7.);vec4 gy1=fract(floor(gx1)*(1./7.))-.5;gx1=fract(gx1);vec4 gz1=vec4(.5)-abs(gx1)-abs(gy1);vec4 sz1=step(gz1,vec4(0.));gx1-=sz1*(step(0.,gx1)-.5);gy1-=sz1*(step(0.,gy1)-.5);vec3 g000=vec3(gx0.x,gy0.x,gz0.x);vec3 g100=vec3(gx0.y,gy0.y,gz0.y);vec3 g010=vec3(gx0.z,gy0.z,gz0.z);vec3 g110=vec3(gx0.w,gy0.w,gz0.w);vec3 g001=vec3(gx1.x,gy1.x,gz1.x);vec3 g101=vec3(gx1.y,gy1.y,gz1.y);vec3 g011=vec3(gx1.z,gy1.z,gz1.z);vec3 g111=vec3(gx1.w,gy1.w,gz1.w);vec4 norm0=taylorInvSqrt(vec4(dot(g000,g000),dot(g010,g010),dot(g100,g100),dot(g110,g110)));g000*=norm0.x;g010*=norm0.y;g100*=norm0.z;g110*=norm0.w;vec4 norm1=taylorInvSqrt(vec4(dot(g001,g001),dot(g011,g011),dot(g101,g101),dot(g111,g111)));g001*=norm1.x;g011*=norm1.y;g101*=norm1.z;g111*=norm1.w;float n000=dot(g000,Pf0);float n100=dot(g100,vec3(Pf1.x,Pf0.yz));float n010=dot(g010,vec3(Pf0.x,Pf1.y,Pf0.z));float n110=dot(g110,vec3(Pf1.xy,Pf0.z));float n001=dot(g001,vec3(Pf0.xy,Pf1.z));float n101=dot(g101,vec3(Pf1.x,Pf0.y,Pf1.z));float n011=dot(g011,vec3(Pf0.x,Pf1.yz));float n111=dot(g111,Pf1);vec3 fade_xyz=fade(Pf0);vec4 n_z=mix(vec4(n000,n100,n010,n110),vec4(n001,n101,n011,n111),fade_xyz.z);vec2 n_yz=mix(n_z.xy,n_z.zw,fade_xyz.y);float n_xyz=mix(n_yz.x,n_yz.y,fade_xyz.x);return 2.2*n_xyz;}/*Permet de stocker UV(qui specifie quel texel lire dans une texture en x,y-normalisés entre 0 et 1)varying : permet de le passer ensuite au fragment shader*/varying vec2 vUv;varying float noise;uniform float time;float turbulence(vec3 p){float w=100.0;float t=-.5;for(float f=1.0;f<=10.0;f++){float power=pow(2.0,f);t+=abs(pnoise(vec3(power*p),vec3(10.0))/power);}return t;}void main(){vUv=uv;float hi_freq=5.0*pnoise(1.*position+vec3(time),vec3(100.));float low_freq=5.0*pnoise(0.1*position+vec3(time),vec3(100.));float size=sin(time*60.0);float wave_x=2.*cos(300.0*uv.x+time*67.0);float wave_y=2.*sin(16.0*uv.y+time*31.0);vec3 p=position+normal*low_freq;noise=low_freq;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}";
+
+class MeshFactory {
+    static createPlanet(vertexShader, fragmentShader) {
+        const geometry = new IcosahedronGeometry(20, 6);
+        const material = new ShaderMaterial({
+            uniforms: {
+                // float initialized to 0
+                time: { type: "f", value: 0.0 },
+            },
+            vertexShader: vertexShader,
+            fragmentShader: fragmentShader
+        });
+        // create a sphere and assign the material
+        const mesh = new Mesh(
+            geometry,
+            material
+        );
+
+        return mesh;
+    }
+
+    static createRing(outerRadius = 1.0,
+        width = 1.0,
+        color = 0xff00ff,
+        position = new Vector3()) {
+        const geometry = new RingGeometry(
+            outerRadius - width,
+            outerRadius,
+            60, // segments largeur
+            1); // segments profondeur
+        const material = new MeshBasicMaterial({
+            color: color
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+        mesh.rotation.x = -Math.PI / 2;
+
+        return mesh;
+    }
+
+    static createTetra(radius = 1.0,
+        color = 0xffff00,
+        position = new Vector3()) {
+        const geometry = new TetrahedronGeometry(
+            radius, 
+            0); // detail
+
+        const material = new MeshBasicMaterial({
+            color: color
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+
+        return mesh;
+    }
+}
 
 class ThreeScene {
     constructor() {
@@ -46383,11 +46618,12 @@ class ThreeScene {
 
         this.camera = new PerspectiveCamera(75, 2, 0.1, 1000);
         this.camera.position.x = 0;
-        this.camera.position.y = 0;
-        this.camera.position.z = 100;
+        this.camera.position.y = 15;
+        this.camera.position.z = 200;
 
         this.control = new OrbitControls(this.camera, this.canvas);
         this.control.enabled = true;
+
         this.scene = new Scene();
 
         this.lights = [];
@@ -46403,28 +46639,70 @@ class ThreeScene {
         for (let i = 0; i < this.lights.length; i++)
             this.scene.add(this.lights[i]);
 
-        // create a shader material
-        this.material = new ShaderMaterial( {
-            uniforms: {
-                // float initialized to 0
-                time: { type: "f", value: 0.0},
-            },
-            vertexShader: vertex,
-            fragmentShader: fragment
-        } );
+        
+        this.planet = MeshFactory.createPlanet(vertex, fragment);
+        this.scene.add(this.planet);
 
-        // create a sphere and assign the material
-        const mesh = new Mesh(
-            new IcosahedronGeometry( 20, 6),
-            this.material
-        );
-        this.scene.add( mesh );
+        this.scene.add(MeshFactory.createRing(80, 4));
+        this.scene.add(MeshFactory.createRing(160, 4));
+
+        this.player = MeshFactory.createTetra(6);
+        this.player.radius = 160;
+        this.player.angle = 0;
+        this.player.min_angle = 0;
+        this.player.max_angle = 2 * Math.PI;
+        this.player.speed = 0;
+        this.player.position.z = this.player.radius;
+        this.scene.add(this.player);
+        document.addEventListener('keydown', (e) => {
+            if(e.code == 'ArrowLeft')
+                this.player.speed -= 0.01;
+            if(e.code == 'ArrowRight')
+                this.player.speed += 0.01;
+        });
+
+        this.enemies = [];
+        for(let i=0; i<3; i++){
+            const e = MeshFactory.createTetra(12);
+            e.radius = 80;
+            e.angle = Math.random() * 2 * Math.PI;
+            e.max_angle = e.angle + 2 * Math.PI;
+            e.position.z = e.radius;
+            e.position.x = 0 + Math.cos(e.angle) * e.radius;
+            e.position.z = 0 + Math.sin(e.angle) * e.radius;
+            this.enemies.push(e);
+            this.scene.add(e);
+        }
 
     }
 
     render(time, delta) {
-        console.log(time);
-        this.material.uniforms[ 'time' ].value = .0001 * time;
+        this.planet.material.uniforms['time'].value = time;
+
+        this.player.speed *= 0.97;
+        if(this.player.speed > 0.1)
+            this.player.speed == 0.1;
+        if(this.player.speed < -0.1)
+            this.player.speed == -0.1;
+        this.player.angle += this.player.speed;
+
+        if(this.player.angle > this.player.max_angle)
+            this.player.angle -= this.player.max_angle;
+        if(this.player.angle < this.player.min_angle)
+            this.player.angle += this.player.max_angle;
+
+        this.player.position.x = 0 + Math.cos(this.player.angle) * this.player.radius;
+        this.player.position.z = 0 + Math.sin(this.player.angle) * this.player.radius;
+        this.player.lookAt(0, 0, 0);
+
+        this.camera.position.x = 0 + Math.cos(this.player.angle) * (this.player.radius + 20);
+        this.camera.position.z = 0 + Math.sin(this.player.angle) * (this.player.radius + 20);
+        this.camera.lookAt(0, 0, 0);
+
+        for(let i=0; i<this.enemies.length; i++){
+            const e = this.enemies[i];
+            e.lookAt(this.player.position);
+        }
 
         this.control.update();
         this.renderer.render(this.scene, this.camera);
@@ -46442,215 +46720,12 @@ class ThreeScene {
     }
 }
 
-class TouchController {
-    constructor() {
-        this.state = {
-            dir: new Vector2(),
-            // action btn
-            action: false
-        };
-
-        this.keys = {
-            left: 37,
-            right: 39,
-            up: 38,
-            down: 40,
-            space: 32
-        };
-
-        this.colors = {
-            background: 'rgba(64, 213, 142, 0.2)',
-            outline: 'rgba(255, 255, 255, 0.5)',
-            joystick: 'rgba(255, 0, 255, 0.3)'
-        };
-
-        this.canvas = document.createElement('canvas');
-
-        this.width = window.innerWidth;
-        this.height = window.innerHeight;
-        
-        // TODO resize 
-        this.canvas.width = this.width;
-        this.canvas.height = this.height;
-        this.canvas.style.width = this.width + 'px';
-        this.canvas.style.height = this.height + 'px';
-        this.canvas.style.position = 'absolute';
-        this.canvas.style.zIndex = 2;
-
-        document.body.appendChild(this.canvas);
-        this.ctx = this.canvas.getContext('2d');
-
-
-        this.r = Math.max(this.width / 20, 50);
-        this.show = true;
-        let v0 = new Vector2(this.r * 2, this.height - this.r * 2);
-        let v1 = new Vector2(this.width - this.r * 2, this.height - this.r * 2);
-        this.leftTouchID = 0; // -1
-        this.rightTouchID = 0; // -1
-        this.leftTouchPos = v0.clone();
-        this.leftTouchStartPos = v0.clone();
-        this.rightTouchPos = v1.clone();
-
-
-        this.canvas.addEventListener('touchstart', (e) => this.touchStart(e));
-        this.canvas.addEventListener('touchend', (e) => this.touchEnd(e));
-        this.canvas.addEventListener('touchmove', (e) => this.touchMove(e));
-
-        document.addEventListener('keydown', (e) => this.keyDownListener(e), true);
-        document.addEventListener('keyup', (e) => this.keyUpListener(e), true);
-    }
-
-    touchStart(event) {
-        event.preventDefault();
-
-        if (this.show === true) {
-            this.show = false;
-            this.leftTouchId = -1;
-            this.rightTouchId = -1;
-        }
-
-        this.show = true;
-        for (let i = 0; i < event.changedTouches.length; i += 1) {
-            const t = event.changedTouches[i];
-
-            // TODO cleanup
-            if (this.leftTouchId < 0 && t.clientX < this.width) {
-                this.leftTouchId = t.identifier;
-                this.leftTouchStartPos.x = this.leftTouchPos.x = t.clientX;
-                this.leftTouchStartPos.y = this.leftTouchPos.y = t.clientY;
-                this.state.dir.x = this.state.dir.y = 0;
-                continue;
-            } else if (this.rightTouchId < 0) {
-                this.rightTouchId = t.identifier;
-                this.rightTouchPos.x = t.clientX;
-                this.rightTouchPos.y = t.clientY;
-                this.state.action = true;
-                continue;
-            }
-        }
-    }
-
-
-    touchMove(event) {
-        event.preventDefault();
-        for (let i = 0; i < event.changedTouches.length; i += 1) {
-            const t = event.changedTouches[i];
-            if (this.leftTouchId === t.identifier) {
-                this.state.dir.x = (t.clientX - this.leftTouchStartPos.x) / this.r;
-                this.state.dir.y = (t.clientY - this.leftTouchStartPos.y) / this.r;
-                this.state.dir.clampLength(0, 1);
-                this.leftTouchPos.x = this.leftTouchStartPos.x + this.state.dir.x * this.r;
-                this.leftTouchPos.y = this.leftTouchStartPos.y + this.state.dir.y * this.r;
-                continue;
-            } else if (this.rightTouchId === t.identifier) {
-                this.rightTouchPos.x = t.clientX;
-                this.rightTouchPos.y = t.clientY;
-                this.state.action = true;
-                continue;
-            }
-        }
-    }
-
-    touchEnd(event) {
-        event.preventDefault();
-        this.show = false;
-        for (let i = 0; i < event.changedTouches.length; i += 1) {
-            const t = event.changedTouches[i];
-
-            if (this.leftTouchId === t.identifier) {
-                this.leftTouchId = -1;
-                this.state.dir.x = 0;
-                this.state.dir.y = 0;
-                break;
-            }
-            if (this.rightTouchId === t.identifier) {
-                this.rightTouchId = -1;
-                this.state.action = false;
-                break;
-            }
-        }
-    }
-
-    keyDownListener(event) {
-        this.show = false;
-        if (event.defaultPrevented) {
-            return; // Should do nothing if the key event was already consumed.
-        }
-        if (event.keyCode === this.keys.up) {
-            this.state.dir.y = -1;
-        }
-        if (event.keyCode === this.keys.down) {
-            this.state.dir.y = 1;
-        }
-        if (event.keyCode === this.keys.left) {
-            this.state.dir.x = -1;
-        }
-        if (event.keyCode === this.keys.right) {
-            this.state.dir.x = 1;
-        }
-        if (event.keyCode === this.keys.space) {
-            this.state.action = true;
-        }
-        event.preventDefault();
-    }
-
-    keyUpListener(event) {
-        if (event.defaultPrevented) {
-            return; // Should do nothing if the key event was already consumed.
-        }
-        if (event.keyCode === this.keys.up || event.keyCode === this.keys.down) {
-            this.state.dir.y = 0;
-        }
-        if (event.keyCode === this.keys.left || event.keyCode === this.keys.right) {
-            this.state.dir.x = 0;
-        }
-        if (event.keyCode === this.keys.space) {
-            this.state.action = false;
-        }
-        event.preventDefault();
-    }
-
-    display () {
-        this.ctx.clearRect(0, 0, this.width, this.height);
-        if(this.show == false) return;
-        
-        const PI2 = 2 * Math.PI;
-        if (this.leftTouchID > -1) {
-            this.ctx.strokeStyle = this.colors.outline;
-            this.ctx.fillStyle = this.colors.background;
-            this.ctx.lineWidth = 8;
-            this.ctx.beginPath();
-            this.ctx.arc(this.leftTouchStartPos.x, this.leftTouchStartPos.y, this.r, 0, PI2);
-            this.ctx.stroke();
-            this.ctx.closePath();
-
-            this.ctx.strokeStyle = this.colors.outline;
-            this.ctx.fillStyle = this.colors.joystick;
-            this.ctx.lineWidth = 2;
-            this.ctx.beginPath();
-            this.ctx.arc(this.leftTouchPos.x, this.leftTouchPos.y, this.r * 0.9, 0, PI2);
-            this.ctx.stroke();
-            this.ctx.fill();
-            this.ctx.closePath();
-        }
-
-        // if (this.rightTouchID > -1) {
-        //     this.ctx.strokeStyle = this.color;
-        //     this.ctx.fillStyle = '#ddd';
-        //     this.ctx.beginPath();
-        //     this.ctx.arc(this.rightTouchPos.x, this.rightTouchPos.y, this.r * 0.9, 0, PI2);
-        //     this.ctx.stroke();
-        //     this.ctx.closePath();
-        // }
-    }
-}
-
 class App {
     constructor() {
         new MiniConsole();
         this.lastTime = 0;
         this.ts = new ThreeScene();
-        this.controller = new TouchController();
+        this.controller = null; //new TouchController();
 
         this.resize();
         addEventListener('resize', () => this.resize(), false);
@@ -46658,7 +46733,8 @@ class App {
     }
 
     update(time) {
-        let delta = (time - this.lastTime) * 0.001;
+        time = 0.001 * time;
+        let delta = (time - this.lastTime);
         delta = Math.min(delta, 0.1);
         this.lastTime = time;
       

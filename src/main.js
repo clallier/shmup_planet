@@ -8,7 +8,7 @@ class App {
         new MiniConsole();
         this.lastTime = 0;
         this.ts = new ThreeScene();
-        this.controller = new TouchController();
+        this.controller = null; //new TouchController();
 
         this.resize()
         addEventListener('resize', () => this.resize(), false);
@@ -16,7 +16,8 @@ class App {
     }
 
     update(time) {
-        let delta = (time - this.lastTime) * 0.001;
+        time = 0.001 * time;
+        let delta = (time - this.lastTime);
         delta = Math.min(delta, 0.1);
         this.lastTime = time;
       

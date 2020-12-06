@@ -143,19 +143,22 @@ void main() {
   // // get a turbulent 3d noise using the normal, normal to high freq
   // noise = 10.0 * -.1 * turbulence(.5 * normal + time);
   // // get a 3d noise using the position, low frequency
-  // float b = 5.0 * pnoise( 0.05 * position, vec3( 2.0 * time ) );
+  float hi_freq = 5.0 * pnoise(1. * position + vec3(time), vec3(100.));
+  float low_freq = 5.0 * pnoise(0.1 * position + vec3(time), vec3(100.));
   // // compose both noises
   // float displacement = - 10. * noise + b;
 
   // move the position along the normal and transform it
   float size = sin(time * 60.0);
-  float wave_x = 2. * cos(60.0 * uv.x + time * 60.0);
-  float wave_y = 2. * sin(16.0 * uv.y + time * 50.0);
+  float wave_x = 2. * cos(300.0 * uv.x + time * 67.0);
+  float wave_y = 2. * sin(16.0 * uv.y + time * 31.0);
   vec3 p = position + 
-    normal * size +
-    normal * wave_y + 
-    normal * wave_x; // * displacement;
-  noise = wave_x + wave_y;
+    // normal * size +
+    // normal * wave_y + 
+    // normal * wave_x
+    normal * low_freq
+    ;
+  noise = low_freq;// size + wave_x + wave_y;
   
   // permet de transformer la position du vertex (en coordonnées objet)
   // en coordonnée caméra ("eye").
