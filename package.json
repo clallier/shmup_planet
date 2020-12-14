@@ -5,6 +5,7 @@
   "author": "godjam <corentin.lallier@gmail.com>",
   "license": "MIT",
   "dependencies": {
+    "ape-ecs": "^1.3.0",
     "three": "^0.122.0"
   },
   "devDependencies": {

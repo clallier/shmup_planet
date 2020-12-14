@@ -1,14 +1,24 @@
+import DeleteTimer from './ecs/components/deletetimer';
+import TimeSystem from './ecs/systems/timesystem';
 import MiniConsole from './miniconsole';
 import ThreeScene from './threescene';
-import TouchController from './touchcontroller';
-
+import { World } from "ape-ecs";
 
 class App {
     constructor() {
         new MiniConsole();
         this.lastTime = 0;
         this.ts = new ThreeScene();
-        this.controller = null; //new TouchController();
+        this.ecs = new World();
+        this.ecs.registerComponent(DeleteTimer);
+        this.ecs.registerSystem('frame', TimeSystem)
+
+        this.ecs.createEntity(
+            {id: 'test', c: {
+                time: {
+                type:'DeleteTimer', 
+                time_left:120
+            }}})
 
         this.resize()
         addEventListener('resize', () => this.resize(), false);
@@ -20,17 +30,15 @@ class App {
         let delta = (time - this.lastTime);
         delta = Math.min(delta, 0.1);
         this.lastTime = time;
-      
-        // TODO 
-        // XXXX
-
+        
+        this.ecs.runSystems('frame');
+        this.ecs.tick();
         this.render(time, delta);
         requestAnimationFrame((t) => this.update(t));
     }
 
     render(time, delta) {
         this.ts.render(time, delta);
-        if(this.controller) this.controller.display();
     }
 
     resize() {

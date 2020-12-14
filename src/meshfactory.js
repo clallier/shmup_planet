@@ -2,7 +2,7 @@ import {
     Vector3, Mesh,
     IcosahedronGeometry, RingGeometry, TetrahedronGeometry,
     BoxGeometry,
-    ShaderMaterial, MeshBasicMaterial, 
+    ShaderMaterial, MeshBasicMaterial, MeshDepthMaterial
 } from "three";
 
 export default class MeshFactory {
@@ -34,7 +34,7 @@ export default class MeshFactory {
             outerRadius,
             60, // segments largeur
             1); // segments profondeur
-        const material = new MeshBasicMaterial({
+        const material = new MeshBasicMaterial ({
             color: color
         });
         const mesh = new Mesh(geometry, material);
@@ -44,12 +44,14 @@ export default class MeshFactory {
         return mesh;
     }
 
-    static createTetra(radius = 1.0,
+    static createTetra(
+        radius = 1.0,
+        detail = 0,
         color = 0xffff00,
         position = new Vector3()) {
         const geometry = new TetrahedronGeometry(
             radius, 
-            0); // detail
+            detail); // detail
 
         const material = new MeshBasicMaterial({
             color: color
