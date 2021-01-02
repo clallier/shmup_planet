@@ -1541,105 +1541,38 @@ var src = {
   EntityObject
 };
 
+class Destroy extends src.Component {
+  static properties = {}
+}
+
 class DeleteTimer extends src.Component {
   static properties = {
     time_left: 1
   }
 }
 
-class TimeSystem extends src.System {
-  init() {
-    this.query = this.createQuery().fromAll('DeleteTimer'); 
-  }
-
-  update(tick) {
-    const entities = this.query.execute();
-    for (const entity of entities) {
-      console.log(`${entity.id}: ${Object.keys(entity.types).length} ready: ${entity.ready}`);
-      const timer = entity.getOne('DeleteTimer');
-      if(timer != null) {
-        timer.time_left -= 1;
-        timer.update();
-        console.log(timer.time_left);
-        if(timer.time_left <= 0) {
-          console.log("destroyed");
-          entity.destroy();
-        }
-      }
+class GameLoop extends src.Component {
+    static properties = {
+        // in s
+        delta: 0, 
+        // in s
+        time: 0
     }
-  }
 }
 
-class MiniConsole {
-    constructor() {
-        this.minsize = '1rem';
-        this.maxsize = '8rem';
-        this.output = document.createElement('pre');
-        this.output.style.color = '#888';
-        this.output.style.background = '#555';
-        this.output.style.margin = '0';
-        this.output.style.position = 'absolute';
-        this.output.style.zIndex = '100';
-        this.output.style.overflow = 'auto';
-        this.output.style.width = '100%';
-        this.output.style.flexDirection = 'column-reverse';
-        this.output.onclick = () => this.toggleSize();
-        this.maximize();
-        this.hide();
-        
-        document.body.insertBefore(this.output, document.body.firstChild);
-        
-        // Reference to native method(s)
-        this.log = console.log;
-        console.log = (...e) => this.consoleCatcher('', ...e);
-        console.warn = (...e) => this.consoleCatcher('warn:', ...e);
-        console.error = (...e) => this.consoleCatcher('err:', ...e);
-        window.onerror = (m, s, ln, col, err) => this.errorCatcher(m, s, ln, col, err);
+class ThreeComponent extends src.Component{
+    static properties = {
+        mesh: null,
+        position: null,
+        rotation: null
     }
+}
 
-    consoleCatcher(level, ...items) {
-        this.show();
-        // Call native method first
-        this.log.apply(this, items);
-
-        // Use JSON to transform objects, all others display normally
-        items.forEach((item, i) => {
-            items[i] = (item != null && typeof item === 'object' ? JSON.stringify(item, null, 2) : item);
-        });
-
-        this.output.innerHTML += `${level}${items.join(' ')} <br />`;
-        this.keep(10);
+class ScreenShake extends src.Component {
+    static properties = {
+        power: 10,
+        duration: 0.1
     }
-
-    errorCatcher(msg, src, line, col, error) {
-        this.show();
-        const stack = { msg, src, line, col, error };
-        this.output.innerHTML += 'error: <br />' + JSON.stringify(stack, null, 2);
-        this.keep(10);
-    }
-
-    keep(length = 10) {
-        while (this.output.childElementCount > length)
-            this.output.removeChild(this.output.firstChild);
-    }
-    toggleSize() {
-        if (this.output.style.maxHeight == this.minsize)
-            this.maximize();
-        else
-            this.minimize();
-    }
-
-    toggleVisibility() {
-        if (this.output.style.display = 'none')
-            this.show();
-        else
-            this.hide();
-    }
-
-    maximize() { this.output.style.maxHeight = this.maxsize; }
-    minimize() { this.output.style.maxHeight = this.minsize; }
-    show() { this.output.style.display = 'flex'; }
-    hide() { this.output.style.display = 'none'; }
 }
 
 // threejs.org/license
@@ -46875,6 +46808,468 @@ if ( typeof __THREE_DEVTOOLS__ !== 'undefined' ) {
 
 }
 
+class Move extends src.Component {
+    static properties = {
+        velocity: new Vector3(),
+        decay: 1,
+        gravity: 0,
+        tilt_angle: 0
+    }
+}
+
+class MoveAlongRing extends src.Component {
+    static properties = {
+        radius: 100,
+        angle: 0,
+        min_angle: 0,
+        max_angle: 2 * Math.PI,
+        speed: 0,
+        decay: 0.97
+    }
+}
+
+class Weapon extends src.Component {
+    static properties = {
+        ammo_type: 'bullet',
+        infinite_ammo: false,
+        ammo_left: 1,
+        attack_timer: 0.5,
+        next_attack: 0.5,
+        is_active: true
+    }
+}
+
+class Collider extends src.Component {
+  static properties = {
+    radius:10,
+    against: null,
+    checked: false
+  }
+}
+
+class ParticlesEmitter extends src.Component {
+  static properties = {
+    particles:10,
+  }
+}
+
+class TimeSystem extends src.System {
+  init() {
+    this.timerQy = this.createQuery()
+      .fromAll('DeleteTimer').persist();
+  }
+
+  update() {
+    const loop = this.world.getEntity('game').getOne('GameLoop');
+    
+    this.timerQy.execute().forEach(e => {
+      const timer = e.getOne('DeleteTimer');
+      if(timer == null) return;
+      
+      timer.time_left -= loop.delta;
+      timer.update();
+      if(timer.time_left <= 0) {
+        // console.log(`entity ${e.id} marked for delete`)
+        e.addComponent({type: 'Destroy'});
+      }
+    });
+  }
+}
+
+class ThreeSystem extends src.System {
+    init(threeScene) {
+        this.threeScene = threeScene;
+        this.scene = this.threeScene.scene;
+        this.camera = this.threeScene.camera;
+        this.target = new Vector3();
+
+        this.subscribe('ThreeComponent');
+        this.subscribe('Destroy');
+
+        this.updateShaderQy = this.createQuery()
+            .fromAll('ThreeComponent', 'UpdateShader');
+
+        this.cameraTargetQy = this.createQuery()
+            .fromAll('MoveAlongRing', 'CameraTarget');
+            
+        this.screenShakeQy = this.createQuery()
+            .fromAll('ThreeComponent', 'ScreenShake').persist();
+    }
+
+    update() {
+        const loop = this.world.getEntity('game').getOne('GameLoop');
+
+        this.changes.forEach(c => {
+            if(c.op == 'add' && c.type == 'ThreeComponent') {
+                const component = this.world.getComponent(c.component);
+                const mesh = component.mesh;
+                mesh.name = component.id;
+                if(component.position != null)
+                    mesh.position.copy(component.position);
+                if(component.rotation != null)
+                    mesh.lookAt(component.rotation);
+                this.scene.add(mesh);
+            } else if (c.op == 'add' && c.type == 'Destroy') {
+                const e = this.world.getEntity(c.entity);
+                if(e == null) return;
+                const component = e.getOne('ThreeComponent');
+                if(component == null) return;
+                // console.log(`removed mesh from ${c.entity}`);
+                const mesh = component.mesh;
+                this.scene.remove(mesh);
+            }
+        });
+
+        this.updateShaderQy.execute().forEach(e => {
+            const component = e.getOne('ThreeComponent');
+            if(component == null) return;
+            component.mesh.material.uniforms['time'].value = loop.time;
+        });
+
+        this.cameraTargetQy.execute().forEach(e => {
+            const move = e.getOne('MoveAlongRing');
+            if(move == null) return;
+
+            const h = Math.abs(move.speed) * 60;
+            const r = move.radius + 20 + Math.abs(move.speed) * 50;
+            const futur_angle = move.angle + move.speed * 4;
+            // console.log(h);
+            this.camera.fov = 100 + h*h;
+            this.target.y = 15 + h;
+            this.target.x = Math.cos(futur_angle) * r;
+            this.target.z = Math.sin(futur_angle) * r;
+            this.camera.position.lerp(this.target, 0.3);
+            
+            this.camera.lookAt(0, 0, 0);
+            this.camera.updateProjectionMatrix();
+        });
+
+        this.screenShakeQy.execute().forEach(e => {
+            const screenShake = e.getOne('ScreenShake');
+            const component = e.getOne('ThreeComponent');
+
+            if(screenShake == null) return;
+            if(component == null) return;
+
+            const p = screenShake.power;
+            this.camera.position.x += Math.random() * p - p/2;
+            this.camera.position.y += Math.random() * p - p/2;
+            this.camera.position.z += Math.random() * p - p/2;
+            
+            screenShake.duration -= loop.delta;
+            screenShake.update();
+
+            if(screenShake.duration <= 0) {
+                e.removeComponent(screenShake);
+            }
+        });
+      }
+}
+
+class MoveSystem extends src.System {
+    init() {
+        this.moveAlongRingQy = this.createQuery()
+            .fromAll('MoveAlongRing', 'ThreeComponent').persist();
+
+        this.moveQy = this.createQuery()
+            .fromAll('Move', 'ThreeComponent').persist();
+    }
+
+    update() {
+        this.moveAlongRingQy.execute().forEach(e => {
+            const move = e.getOne('MoveAlongRing');
+            const component = e.getOne('ThreeComponent');
+            if(move == null) return;
+            if(component == null) return;
+            const mesh = component.mesh;
+
+            move.speed *= move.decay;
+            if (move.speed > 0.1) move.speed == 0.1;
+            if (move.speed < -0.1) move.speed == -0.1;
+            move.angle += move.speed;
+    
+            if (move.angle > move.max_angle)
+                move.angle -= move.max_angle;
+            if (move.angle < move.min_angle)
+                move.angle += move.max_angle;
+    
+            mesh.position.x = 0 + Math.cos(move.angle) * move.radius;
+            mesh.position.z = 0 + Math.sin(move.angle) * move.radius;
+            mesh.lookAt(0, 0, 0);
+            
+            move.update();
+          });
+
+          this.moveQy.execute().forEach(e => {
+            const move = e.getOne('Move');
+            const component = e.getOne('ThreeComponent');
+            if(move == null) return;
+            if(component == null) return;
+
+            const mesh = component.mesh;
+            move.velocity.y += move.gravity;
+            move.velocity = move.velocity.multiplyScalar(move.decay);
+            mesh.position.add(move.velocity);
+            mesh.rotateZ(move.tilt_angle);
+            move.update();
+          });
+    }
+}
+
+class ControlSystem extends src.System {
+    init() {
+        this.event = null;
+        this.controllableQy = this.createQuery()
+            .fromAll('Controllable', 'MoveAlongRing');
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code == 'ArrowLeft')
+                this.event = 'move_left';
+            if (e.code == 'ArrowRight')
+                this.event = 'move_right';
+        });
+    }
+
+    update() {
+        const loop = this.world.getEntity('game').getOne('GameLoop');
+
+        this.controllableQy.execute().forEach(entity => {
+            const move = entity.getOne('MoveAlongRing');
+            
+            if (this.event == 'move_left')
+                move.speed += 0.01;
+                
+            if (this.event == 'move_right')
+                move.speed -= 0.01;
+        });
+
+        this.event = null;
+    }
+}
+
+class WeaponSystem extends src.System {
+  init(entityFactory) {
+    this.entityFactory = entityFactory;
+    this.query = this.createQuery().fromAll('Weapon', 'ThreeComponent');
+  }
+
+  update() {
+    const loop = this.world.getEntity('game').getOne('GameLoop');
+    
+    this.query.execute().forEach(e => {
+      const weapon = e.getOne('Weapon');
+      const component = e.getOne('ThreeComponent');
+      if(weapon == null) return;
+      if(component == null) return;
+
+      const is_active = weapon.is_active && 
+        (weapon.infinite_ammo || weapon.ammo_left > 0); 
+      
+      if(is_active == false) return;
+      const mesh = component.mesh;
+      weapon.next_attack -= loop.delta;
+
+      if(weapon.next_attack <= 0) {
+        weapon.next_attack = weapon.attack_timer;
+        if(weapon.ammo_left > 0) weapon.ammo_left -= 1;
+        // bullet
+        const pos = mesh.position;
+        const dir = new Vector3();
+        mesh.getWorldDirection(dir);
+        this.entityFactory.createBullet(weapon.ammo_type, pos, dir);
+        e.addComponent({type:'ScreenShake', power: 5, duration: 0.1});
+      }
+
+      weapon.update();
+    });
+  }
+}
+
+class DeleteSystem extends src.System {
+    init() {
+        this.subscribe('Destroy');
+    }
+
+    update() {
+        this.changes.forEach(c => {
+            if (c.op == 'add') {
+                // console.log(`destroy entity ${c.entity}`)
+                this.world.removeEntity(c.entity);
+            }
+        });
+    }
+}
+
+class CollisionSystem extends src.System {
+  init() {
+    this.colliderQy = this.createQuery()
+      .fromAll('Collider').persist();
+  }
+
+  update() {
+    const loop = this.world.getEntity('game').getOne('GameLoop');
+    
+    const entities = this.colliderQy.execute();
+    entities.forEach(e => {
+      const e_collider = e.getOne('Collider');
+      if(e_collider.against == null) return;
+
+      // const test = e_collider.against.map((t) => (typeof t !== 'string' ? t.name : t));
+      const potential = this.createQuery().fromAll(e_collider.against).execute();
+
+      const e_component = e.getOne('ThreeComponent');
+      const e_mesh = e_component.mesh;
+
+      potential.forEach(i => {
+        const i_collider = i.getOne('Collider');
+        const i_component = i.getOne('ThreeComponent');
+        const i_mesh = i_component.mesh;
+        
+        if(i_collider.checked) return;
+
+        const d = e_mesh.position.distanceTo(i_mesh.position);
+        // console.log(`dist: ${d}`)
+        if(d < 10) {
+          // TODO : compute collision dist 
+          // console.log(`${e.id} collide with ${i.id}`);
+          if(i.has('Explodes')) {
+            // console.log(`${i.id} Explodes`);
+            i.removeTag('Explodes');
+            i.addComponent({type: 'ParticlesEmitter'});
+            i.addComponent({type: 'ScreenShake'});
+            i.addComponent({type: 'DeleteTimer', time_left: 0.1});
+            
+          }
+        }
+      });
+      
+      e_collider.update({checked: true});
+    });
+
+    // reset checked
+    entities.forEach(e => e.getOne('Collider').update({checked: false}));
+  }
+}
+
+class ParticlesSystem extends src.System {
+    init(entityFactory) {
+        this.entityFactory = entityFactory;
+        this.subscribe('ParticlesEmitter');
+    }
+
+    update() {
+        this.changes.forEach(c => {
+            if (c.op == 'add') {
+                const entity = this.world.getEntity(c.entity);
+                const emitter = this.world.getComponent(c.component);
+                const three = entity.getOne('ThreeComponent');
+
+                // no position, so ... no position to start emit
+                if (three == null) return;
+
+                // here come particles ...
+                const mesh = three.mesh;
+                for (let i = 0; i < emitter.particles; i++) {
+                    const tilt = Math.random() * 0.1;
+                    const decay = Math.random() * 0.1 + 0.9; 
+                    const ttl = Math.random() + 1.0; 
+                    // angle on ground plane
+                    const velocity = 3;
+                    const xz_angle = Math.random() * 2 * Math.PI;
+                    // start position 
+                    const position = mesh.position;
+                    // direction
+                    const direction = new Vector3(
+                        Math.cos(xz_angle) * velocity,
+                        velocity,
+                        Math.sin(xz_angle) * velocity
+                    );
+                    // creation
+                    this.entityFactory.createParticle({
+                        position,
+                        direction,
+                        decay,
+                        tilt,
+                        ttl
+                    });
+                }
+            }
+        });
+    }
+}
+
+class MiniConsole {
+    constructor() {
+        this.minsize = '1rem';
+        this.maxsize = '8rem';
+        this.output = document.createElement('pre');
+        this.output.style.color = '#888';
+        this.output.style.background = '#555';
+        this.output.style.margin = '0';
+        this.output.style.position = 'absolute';
+        this.output.style.zIndex = '100';
+        this.output.style.overflow = 'auto';
+        this.output.style.width = '100%';
+        this.output.style.flexDirection = 'column-reverse';
+        this.output.onclick = () => this.toggleSize();
+        this.maximize();
+        this.hide();
+        
+        document.body.insertBefore(this.output, document.body.firstChild);
+        
+        // Reference to native method(s)
+        this.log = console.log;
+        console.log = (...e) => this.consoleCatcher('', ...e);
+        console.warn = (...e) => this.consoleCatcher('warn:', ...e);
+        console.error = (...e) => this.consoleCatcher('err:', ...e);
+        window.onerror = (m, s, ln, col, err) => this.errorCatcher(m, s, ln, col, err);
+    }
+
+    consoleCatcher(level, ...items) {
+        this.show();
+        // Call native method first
+        this.log.apply(this, items);
+
+        // Use JSON to transform objects, all others display normally
+        items.forEach((item, i) => {
+            items[i] = (item != null && typeof item === 'object' ? JSON.stringify(item, null, 2) : item);
+        });
+
+        this.output.innerHTML += `${level}${items.join(' ')} <br />`;
+        this.keep(10);
+    }
+
+    errorCatcher(msg, src, line, col, error) {
+        this.show();
+        const stack = { msg, src, line, col, error };
+        this.output.innerHTML += 'error: <br />' + JSON.stringify(stack, null, 2);
+        this.keep(10);
+    }
+
+    keep(length = 10) {
+        while (this.output.childElementCount > length)
+            this.output.removeChild(this.output.firstChild);
+    }
+    toggleSize() {
+        if (this.output.style.maxHeight == this.minsize)
+            this.maximize();
+        else
+            this.minimize();
+    }
+
+    toggleVisibility() {
+        if (this.output.style.display = 'none')
+            this.show();
+        else
+            this.hide();
+    }
+
+    maximize() { this.output.style.maxHeight = this.maxsize; }
+    minimize() { this.output.style.maxHeight = this.minsize; }
+    show() { this.output.style.display = 'flex'; }
+    hide() { this.output.style.display = 'none'; }
+}
+
 // This set of controls performs orbiting, dollying (zooming), and panning.
 // Unlike TrackballControls, it maintains the "up" direction object.up (+Y by default).
 //
@@ -48167,10 +48562,6 @@ var WEBGL = {
 
 };
 
-var fragment = "precision mediump float;varying vec2 vUv;varying float noise;void main(){vec4 color1=vec4(0.9,0.50,0.1,1.);vec4 color2=vec4(0.9,0.9,0.5,1.);gl_FragColor=mix(color2,color1,noise);}";
-
-var vertex = "vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}vec4 mod289(vec4 x){return x-floor(x*(1./289.))*289.;}vec4 permute(vec4 x){return mod289(((x*34.)+1.)*x);}vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-.85373472095314*r;}vec3 fade(vec3 t){return t*t*t*(t*(t*6.-15.)+10.);}float pnoise(vec3 P,vec3 rep){vec3 Pi0=mod(floor(P),rep);vec3 Pi1=mod(Pi0+vec3(1.),rep);Pi0=mod289(Pi0);Pi1=mod289(Pi1);vec3 Pf0=fract(P);vec3 Pf1=Pf0-vec3(1.);vec4 ix=vec4(Pi0.x,Pi1.x,Pi0.x,Pi1.x);vec4 iy=vec4(Pi0.yy,Pi1.yy);vec4 iz0=Pi0.zzzz;vec4 iz1=Pi1.zzzz;vec4 ixy=permute(permute(ix)+iy);vec4 ixy0=permute(ixy+iz0);vec4 ixy1=permute(ixy+iz1);vec4 gx0=ixy0*(1./7.);vec4 gy0=fract(floor(gx0)*(1./7.))-.5;gx0=fract(gx0);vec4 gz0=vec4(.5)-abs(gx0)-abs(gy0);vec4 sz0=step(gz0,vec4(0.));gx0-=sz0*(step(0.,gx0)-.5);gy0-=sz0*(step(0.,gy0)-.5);vec4 gx1=ixy1*(1./7.);vec4 gy1=fract(floor(gx1)*(1./7.))-.5;gx1=fract(gx1);vec4 gz1=vec4(.5)-abs(gx1)-abs(gy1);vec4 sz1=step(gz1,vec4(0.));gx1-=sz1*(step(0.,gx1)-.5);gy1-=sz1*(step(0.,gy1)-.5);vec3 g000=vec3(gx0.x,gy0.x,gz0.x);vec3 g100=vec3(gx0.y,gy0.y,gz0.y);vec3 g010=vec3(gx0.z,gy0.z,gz0.z);vec3 g110=vec3(gx0.w,gy0.w,gz0.w);vec3 g001=vec3(gx1.x,gy1.x,gz1.x);vec3 g101=vec3(gx1.y,gy1.y,gz1.y);vec3 g011=vec3(gx1.z,gy1.z,gz1.z);vec3 g111=vec3(gx1.w,gy1.w,gz1.w);vec4 norm0=taylorInvSqrt(vec4(dot(g000,g000),dot(g010,g010),dot(g100,g100),dot(g110,g110)));g000*=norm0.x;g010*=norm0.y;g100*=norm0.z;g110*=norm0.w;vec4 norm1=taylorInvSqrt(vec4(dot(g001,g001),dot(g011,g011),dot(g101,g101),dot(g111,g111)));g001*=norm1.x;g011*=norm1.y;g101*=norm1.z;g111*=norm1.w;float n000=dot(g000,Pf0);float n100=dot(g100,vec3(Pf1.x,Pf0.yz));float n010=dot(g010,vec3(Pf0.x,Pf1.y,Pf0.z));float n110=dot(g110,vec3(Pf1.xy,Pf0.z));float n001=dot(g001,vec3(Pf0.xy,Pf1.z));float n101=dot(g101,vec3(Pf1.x,Pf0.y,Pf1.z));float n011=dot(g011,vec3(Pf0.x,Pf1.yz));float n111=dot(g111,Pf1);vec3 fade_xyz=fade(Pf0);vec4 n_z=mix(vec4(n000,n100,n010,n110),vec4(n001,n101,n011,n111),fade_xyz.z);vec2 n_yz=mix(n_z.xy,n_z.zw,fade_xyz.y);float n_xyz=mix(n_yz.x,n_yz.y,fade_xyz.x);return 2.2*n_xyz;}/*Permet de stocker UV(qui specifie quel texel lire dans une texture en x,y-normalisés entre 0 et 1)varying : permet de le passer ensuite au fragment shader*/varying vec2 vUv;varying float noise;uniform float time;float turbulence(vec3 p){float w=100.0;float t=-.5;for(float f=1.0;f<=10.0;f++){float power=pow(2.0,f);t+=abs(pnoise(vec3(power*p),vec3(10.0))/power);}return t;}void main(){vUv=uv;float hi_freq=5.0*pnoise(1.*position+vec3(time),vec3(100.));float low_freq=5.0*pnoise(0.1*position+vec3(time),vec3(100.));float size=sin(time*60.0);float wave_x=2.*cos(300.0*uv.x+time*67.0);float wave_y=2.*sin(16.0*uv.y+time*31.0);vec3 p=position+normal*low_freq;noise=low_freq;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}";
-
 class MeshFactory {
     static createPlanet(vertexShader, fragmentShader) {
         const geometry = new IcosahedronGeometry(20, 6);
@@ -48252,18 +48643,16 @@ class ThreeScene {
         }
 
         this.canvas = document.querySelector('#canvas');
-        // const context = this.canvas.getContext('webgl2', { alpha: true });
         this.renderer = new WebGLRenderer({canvas: this.canvas/*, context*/});
         this.renderer.premultipliedAlpha = false;
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = PCFSoftShadowMap;
-        this.renderer.setClearColor( 0x052222, 1);
+        this.renderer.setClearColor(0x052222, 1);
 
         this.camera = new PerspectiveCamera(100, 2, 0.1, 1000);
         this.camera.position.x = 0;
         this.camera.position.y = 15;
         this.camera.position.z = 200;
-        this.camera.pos_target = new Vector3();
 
         this.control = new OrbitControls(this.camera, this.canvas);
         this.control.enabled = true;
@@ -48284,137 +48673,9 @@ class ThreeScene {
             this.scene.add(this.lights[i]);
 
         this.scene.fog = new FogExp2(0x052525, 0.0035);
-
-        this.planet = MeshFactory.createPlanet(vertex, fragment);
-        this.scene.add(this.planet);
-
-        this.scene.add(MeshFactory.createRing(80, 4));
-        this.scene.add(MeshFactory.createRing(160, 4));
-
-        this.player = MeshFactory.createTetra(6);
-        this.player.radius = 160;
-        this.player.attack_timer = 0.5;
-        this.player.next_attack = this.player.attack_timer; 
-        this.player.angle = 0;
-        this.player.min_angle = 0;
-        this.player.max_angle = 2 * Math.PI;
-        this.player.speed = 0;
-        this.player.position.z = this.player.radius;
-        this.scene.add(this.player);
-        document.addEventListener('keydown', (e) => {
-            if (e.code == 'ArrowLeft')
-                this.player.speed += 0.01;
-            if (e.code == 'ArrowRight')
-                this.player.speed -= 0.01;
-        });
-
-        // asteroids
-        for (let l = 0; l < 3; l++) {
-            const n = 3 * (l+1) * (l+1);
-            const s = Math.max(900 - 650 * l, 10);  
-            const r = 800 - 180 * (l * 1.5);
-            // console.log(`l: ${l} n:${n}, s:${s}, r:${r}`);
-            for (let i = 0; i < n; i++) {
-
-                const e = MeshFactory.createTetra(s, l, 0xff00ff);
-                e.radius = r;
-                e.angle = i * (2 / n) * Math.PI;
-                e.position.y = Math.sin(i) * 300;
-                e.position.z = e.radius;
-                e.position.x = 0 + Math.cos(e.angle) * e.radius;
-                e.position.z = 0 + Math.sin(e.angle) * e.radius;
-                this.scene.add(e);
-            }
-        }
-
-        this.enemies = [];
-        for (let i = 0; i < 3; i++) {
-            const e = MeshFactory.createTetra(12);
-            e.radius = 80;
-            e.attack_timer = Math.random() * 4;
-            e.next_attack = e.attack_timer; 
-            e.angle = Math.random() * 2 * Math.PI;
-            e.max_angle = e.angle + 2 * Math.PI;
-            e.position.z = e.radius;
-            e.position.x = 0 + Math.cos(e.angle) * e.radius;
-            e.position.z = 0 + Math.sin(e.angle) * e.radius;
-            this.enemies.push(e);
-            this.scene.add(e);
-        }
-
-        this.bullets = [];
     }
 
-    render(time, delta) {
-        this.planet.material.uniforms['time'].value = time;
-
-        this.player.next_attack -= delta;
-
-        if(this.player.next_attack <= 0) {
-            this.player.next_attack = this.player.attack_timer;
-            // bullet
-            const b = MeshFactory.createBox(4, 4, 4, 0x00aaaa);
-            b.velocity = new Vector3();
-            this.player.getWorldDirection(b.velocity);
-            b.velocity.setLength(2);
-            b.position.copy(this.player.position);
-            b.timer = 1;
-            this.bullets.push(b);
-            this.scene.add(b);
-        }
-
-        this.player.speed *= 0.97;
-        if (this.player.speed > 0.1)
-            this.player.speed == 0.1;
-        if (this.player.speed < -0.1)
-            this.player.speed == -0.1;
-        this.player.angle += this.player.speed;
-
-        if (this.player.angle > this.player.max_angle)
-            this.player.angle -= this.player.max_angle;
-        if (this.player.angle < this.player.min_angle)
-            this.player.angle += this.player.max_angle;
-
-        this.player.position.x = 0 + Math.cos(this.player.angle) * this.player.radius;
-        this.player.position.z = 0 + Math.sin(this.player.angle) * this.player.radius;
-        this.player.lookAt(0, 0, 0);
-
-        const h = Math.abs(this.player.speed) * 60;
-        const r = this.player.radius + 20 + Math.abs(this.player.speed) * 50;
-        const futur_angle = this.player.angle + this.player.speed * 4;
-        // console.log(h);
-        this.camera.fov = 100 + h*h;
-        this.camera.pos_target.y = 15 + h;
-        this.camera.pos_target.x = Math.cos(futur_angle) * r;
-        this.camera.pos_target.z = Math.sin(futur_angle) * r;
-        this.camera.position.lerp(this.camera.pos_target, 0.3);
-        this.camera.lookAt(0, 0, 0);
-        this.camera.updateProjectionMatrix();
-
-        for (let i = 0; i < this.enemies.length; i++) {
-            const e = this.enemies[i];
-            e.lookAt(this.player.position);
-            e.next_attack -= delta;
-
-            if(e.next_attack <= 0) {
-                e.next_attack = e.attack_timer;
-                const b = MeshFactory.createBox(4, 4, 4);
-                b.velocity = new Vector3();
-                e.getWorldDirection(b.velocity);
-                b.velocity.setLength(2);
-                b.position.copy(e.position);
-                this.bullets.push(b);
-                this.scene.add(b);
-            }
-        }
-
-        // update bullets
-        for (let i = 0; i < this.bullets.length; i++) {
-            const b = this.bullets[i];
-            b.position.add(b.velocity);
-            b.timer -= delta; 
-        }
-
+    render() {
         this.control.update();
         this.renderer.render(this.scene, this.camera);
     }
@@ -48431,21 +48692,276 @@ class ThreeScene {
     }
 }
 
+var fragment = "precision mediump float;varying vec2 vUv;varying float noise;void main(){vec4 color1=vec4(0.9,0.50,0.1,1.);vec4 color2=vec4(0.9,0.9,0.5,1.);gl_FragColor=mix(color2,color1,noise);}";
+
+var vertex = "vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}vec4 mod289(vec4 x){return x-floor(x*(1./289.))*289.;}vec4 permute(vec4 x){return mod289(((x*34.)+1.)*x);}vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-.85373472095314*r;}vec3 fade(vec3 t){return t*t*t*(t*(t*6.-15.)+10.);}float pnoise(vec3 P,vec3 rep){vec3 Pi0=mod(floor(P),rep);vec3 Pi1=mod(Pi0+vec3(1.),rep);Pi0=mod289(Pi0);Pi1=mod289(Pi1);vec3 Pf0=fract(P);vec3 Pf1=Pf0-vec3(1.);vec4 ix=vec4(Pi0.x,Pi1.x,Pi0.x,Pi1.x);vec4 iy=vec4(Pi0.yy,Pi1.yy);vec4 iz0=Pi0.zzzz;vec4 iz1=Pi1.zzzz;vec4 ixy=permute(permute(ix)+iy);vec4 ixy0=permute(ixy+iz0);vec4 ixy1=permute(ixy+iz1);vec4 gx0=ixy0*(1./7.);vec4 gy0=fract(floor(gx0)*(1./7.))-.5;gx0=fract(gx0);vec4 gz0=vec4(.5)-abs(gx0)-abs(gy0);vec4 sz0=step(gz0,vec4(0.));gx0-=sz0*(step(0.,gx0)-.5);gy0-=sz0*(step(0.,gy0)-.5);vec4 gx1=ixy1*(1./7.);vec4 gy1=fract(floor(gx1)*(1./7.))-.5;gx1=fract(gx1);vec4 gz1=vec4(.5)-abs(gx1)-abs(gy1);vec4 sz1=step(gz1,vec4(0.));gx1-=sz1*(step(0.,gx1)-.5);gy1-=sz1*(step(0.,gy1)-.5);vec3 g000=vec3(gx0.x,gy0.x,gz0.x);vec3 g100=vec3(gx0.y,gy0.y,gz0.y);vec3 g010=vec3(gx0.z,gy0.z,gz0.z);vec3 g110=vec3(gx0.w,gy0.w,gz0.w);vec3 g001=vec3(gx1.x,gy1.x,gz1.x);vec3 g101=vec3(gx1.y,gy1.y,gz1.y);vec3 g011=vec3(gx1.z,gy1.z,gz1.z);vec3 g111=vec3(gx1.w,gy1.w,gz1.w);vec4 norm0=taylorInvSqrt(vec4(dot(g000,g000),dot(g010,g010),dot(g100,g100),dot(g110,g110)));g000*=norm0.x;g010*=norm0.y;g100*=norm0.z;g110*=norm0.w;vec4 norm1=taylorInvSqrt(vec4(dot(g001,g001),dot(g011,g011),dot(g101,g101),dot(g111,g111)));g001*=norm1.x;g011*=norm1.y;g101*=norm1.z;g111*=norm1.w;float n000=dot(g000,Pf0);float n100=dot(g100,vec3(Pf1.x,Pf0.yz));float n010=dot(g010,vec3(Pf0.x,Pf1.y,Pf0.z));float n110=dot(g110,vec3(Pf1.xy,Pf0.z));float n001=dot(g001,vec3(Pf0.xy,Pf1.z));float n101=dot(g101,vec3(Pf1.x,Pf0.y,Pf1.z));float n011=dot(g011,vec3(Pf0.x,Pf1.yz));float n111=dot(g111,Pf1);vec3 fade_xyz=fade(Pf0);vec4 n_z=mix(vec4(n000,n100,n010,n110),vec4(n001,n101,n011,n111),fade_xyz.z);vec2 n_yz=mix(n_z.xy,n_z.zw,fade_xyz.y);float n_xyz=mix(n_yz.x,n_yz.y,fade_xyz.x);return 2.2*n_xyz;}/*Permet de stocker UV(qui specifie quel texel lire dans une texture en x,y-normalisés entre 0 et 1)varying : permet de le passer ensuite au fragment shader*/varying vec2 vUv;varying float noise;uniform float time;float turbulence(vec3 p){float w=100.0;float t=-.5;for(float f=1.0;f<=10.0;f++){float power=pow(2.0,f);t+=abs(pnoise(vec3(power*p),vec3(10.0))/power);}return t;}void main(){vUv=uv;float hi_freq=5.0*pnoise(1.*position+vec3(time),vec3(100.));float low_freq=5.0*pnoise(0.1*position+vec3(time),vec3(100.));float size=sin(time*60.0);float wave_x=2.*cos(300.0*uv.x+time*67.0);float wave_y=2.*sin(16.0*uv.y+time*31.0);vec3 p=position+normal*low_freq;noise=low_freq;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}";
+
+class EntityFactory {
+    constructor(ecs) {
+        this.ecs = ecs;
+    }
+
+    createGameLoop() {
+        this.ecs.createEntity({
+            id: 'game',
+            components: [{
+                type: 'GameLoop'
+            }]
+        });
+    }
+
+    createTest() {
+        this.ecs.createEntity({
+            id: 'test',
+            components: [{
+                type: 'DeleteTimer',
+                time_left: 2
+            }]
+        });
+    }
+
+    createPlanet() {
+        this.ecs.createEntity({
+            id: 'planet',
+            tags: ['UpdateShader'],
+            components: [{
+                type: 'ThreeComponent',
+                mesh: MeshFactory.createPlanet(vertex, fragment)
+            }]
+        });
+    }
+
+    createRings() {
+        this.ecs.createEntity({
+            id: 'ring1',
+            components: [{
+                type: 'ThreeComponent',
+                mesh: MeshFactory.createRing(80, 4)
+            }]
+        });
+
+        this.ecs.createEntity({
+            id: 'ring2',
+            components: [{
+                type: 'ThreeComponent',
+                mesh: MeshFactory.createRing(160, 4)
+            }]
+        });
+    }
+
+    createPlayer() {
+        this.ecs.createEntity({
+            id: 'player',
+            tags: ['Controllable', 'CameraTarget'],
+            components: [{
+                type: 'ThreeComponent',
+                mesh: MeshFactory.createTetra(6)
+            }, {
+                type: 'MoveAlongRing',
+                radius: 160,
+                angle: 0,
+                speed: 0
+            }, {
+                type: 'Weapon',
+                attack_timer: 2,
+                next_attack: 0.5,
+                is_active: true,
+                infinite_ammo: true
+            }]
+        });
+    }
+
+    createBullet(type, position, direction) {
+        let mesh = null;
+        if (type == 'bullet')
+            mesh = MeshFactory.createBox(4, 4, 4, 0x00aaaa);
+        else
+            console.warn('unknown bullet type');
+
+        this.ecs.createEntity({
+            tags: ['Bullet'],
+            components: [{
+                type: 'ThreeComponent',
+                mesh: mesh,
+                position: position,
+                rotation: direction,
+            }, {
+                type: 'Move',
+                velocity: direction.multiplyScalar(2)
+            }, {
+                type: 'DeleteTimer',
+                time_left: 1
+            }, {
+                type: 'Collider',
+                against: 'Enemy'
+            }]
+        });
+    }
+
+    createParticle(config = {}) {
+        const position = config.position || new Vector3();
+        const direction = config.direction || new Vector3();
+        const decay = config.decay || 0;
+        const tilt = config.tilt || 0;
+        const ttl = config.ttl || 1;
+        
+        this.ecs.createEntity({
+            tags: ['Particle'],
+            components: [{
+                type: 'ThreeComponent',
+                mesh: MeshFactory.createTetra(3, 0, 0x00aaaa),
+                position: position,
+                rotation: direction,
+            }, {
+                type: 'Move',
+                velocity: direction,
+                decay: decay,
+                gravity: -0.06,
+                tilt_angle: tilt
+            },{
+                type: 'DeleteTimer',
+                time_left: ttl
+            }]
+        });
+    }
+
+    createBackground() {
+        // asteroids
+        for (let l = 0; l < 3; l++) {
+            const n = 3 * (l + 1) * (l + 1);
+            const s = Math.max(900 - 650 * l, 10);
+            const r = 800 - 180 * (l * 1.5);
+
+            // console.log(`l: ${l} n:${n}, s:${s}, r:${r}`);
+            for (let i = 0; i < n; i++) {
+                const radius = r;
+                const angle = i * (2 / n) * Math.PI;
+
+                const position = new Vector3(
+                    Math.cos(angle) * radius,
+                    Math.sin(i) * 300,
+                    Math.sin(angle) * radius
+                );
+
+                this.ecs.createEntity({
+                    id: `asteroid_${l}x${i}`,
+                    components: [{
+                        type: 'ThreeComponent',
+                        mesh: MeshFactory.createTetra(s, l, 0xff00ff),
+                        position: position
+                    }]
+                });
+            }
+        }
+    }
+
+    createEnemies() {
+        // TODO wave system
+        const radius = 80;
+        for (let i = 0; i < 3; i++) {
+            // const attack_timer = Math.random() * 4;
+            // const next_attack = e.attack_timer; 
+            const angle = Math.random() * 2 * Math.PI;
+            const position = new Vector3(
+                Math.cos(angle) * radius,
+                0,
+                Math.sin(angle) * radius
+            );
+
+            this.ecs.createEntity({
+                id: `enemy_${i}`,
+                tags: ['Enemy', 'Explodes'],
+                components: [{
+                    type: 'ThreeComponent',
+                    mesh: MeshFactory.createTetra(12),
+                    position: position
+                }, {
+                    type: 'MoveAlongRing',
+                    radius: radius,
+                    angle: angle,
+                    speed: 0
+                }, {
+                    type: 'Collider'
+                }]
+            });
+        }
+    }
+
+    createTestEnemy() {
+        const radius = 80;
+        const angle = 0;
+        const position = new Vector3(
+            Math.cos(angle) * radius,
+            0,
+            Math.sin(angle) * radius
+        );
+
+        this.ecs.createEntity({
+            id: 'enemy_test',
+            tags: ['Enemy', 'Explodes'],
+            components: [{
+                type: 'ThreeComponent',
+                mesh: MeshFactory.createTetra(12),
+                position: position
+            }, {
+                type: 'MoveAlongRing',
+                radius: radius,
+                angle: angle,
+                speed: 0
+            }, {
+                type: 'Collider'
+            }]
+        });
+    }
+
+    
+}
+
 class App {
     constructor() {
         new MiniConsole();
         this.lastTime = 0;
         this.ts = new ThreeScene();
         this.ecs = new src.World();
+        this.entityFactory = new EntityFactory(this.ecs);
+        
+        // components
+        this.ecs.registerComponent(GameLoop);
+        this.ecs.registerComponent(Destroy);
         this.ecs.registerComponent(DeleteTimer);
-        this.ecs.registerSystem('frame', TimeSystem);
+        this.ecs.registerComponent(ThreeComponent);
+        this.ecs.registerComponent(ScreenShake);
+        this.ecs.registerComponent(MoveAlongRing);
+        this.ecs.registerComponent(Move);
+        this.ecs.registerComponent(Weapon);
+        this.ecs.registerComponent(Collider);
+        this.ecs.registerComponent(ParticlesEmitter);
+        
+        // tags
+        this.ecs.registerTags(
+            'UpdateShader', 
+            'Controllable', 'CameraTarget',
+            'Bullet', 'Enemy', 'Particle',
+            'Explodes'
+        );
 
-        this.ecs.createEntity(
-            {id: 'test', c: {
-                time: {
-                type:'DeleteTimer', 
-                time_left:120
-            }}});
+        // systems
+        this.ecs.registerSystem('frame', TimeSystem);
+        this.ecs.registerSystem('frame', ControlSystem);
+        this.ecs.registerSystem('frame', WeaponSystem, [this.entityFactory]);
+        this.ecs.registerSystem('frame', ParticlesSystem, [this.entityFactory]);
+        this.ecs.registerSystem('frame', MoveSystem);
+        this.ecs.registerSystem('frame', CollisionSystem);
+        this.ecs.registerSystem('frame', ThreeSystem, [this.ts]);
+        this.ecs.registerSystem('frame', DeleteSystem);
+
+        // create entities
+        this.entityFactory.createGameLoop();
+        this.entityFactory.createPlanet();
+        this.entityFactory.createRings();
+        this.entityFactory.createBackground();
+        this.entityFactory.createPlayer();
+        this.entityFactory.createEnemies();
 
         this.resize();
         addEventListener('resize', () => this.resize(), false);
@@ -48457,7 +48973,8 @@ class App {
         let delta = (time - this.lastTime);
         delta = Math.min(delta, 0.1);
         this.lastTime = time;
-        
+        this.ecs.getEntity('game').getOne('GameLoop').update({time, delta});
+
         this.ecs.runSystems('frame');
         this.ecs.tick();
         this.render(time, delta);

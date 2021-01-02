@@ -1,8 +1,24 @@
-import DeleteTimer from './ecs/components/deletetimer';
+import {Destroy, DeleteTimer} from './ecs/components/deletetimer';
+import GameLoop from './ecs/components/gameloop';
+import {ThreeComponent, ScreenShake} from './ecs/components/threecomponent';
+import {MoveAlongRing, Move} from './ecs/components/move';
+import Weapon from './ecs/components/weapon';
+import Collider from './ecs/components/collider';
+import ParticlesEmitter from './ecs/components/particlesemitter';
+
 import TimeSystem from './ecs/systems/timesystem';
+import ThreeSystem from './ecs/systems/threesystem';
+import MoveSystem from './ecs/systems/movesystem';
+import ControlSystem from './ecs/systems/controlsystem';
+import WeaponSystem from './ecs/systems/weaponsystem';
+import DeleteSystem from './ecs/systems/deletesystem';
+import CollisionSystem from './ecs/systems/collisionsystem';
+import ParticlesSystem from './ecs/systems/particlessystem';
+
 import MiniConsole from './miniconsole';
 import ThreeScene from './threescene';
 import { World } from "ape-ecs";
+import EntityFactory from './ecs/entityfactory';
 
 class App {
     constructor() {
@@ -10,17 +26,47 @@ class App {
         this.lastTime = 0;
         this.ts = new ThreeScene();
         this.ecs = new World();
+        this.entityFactory = new EntityFactory(this.ecs);
+        
+        // components
+        this.ecs.registerComponent(GameLoop);
+        this.ecs.registerComponent(Destroy);
         this.ecs.registerComponent(DeleteTimer);
-        this.ecs.registerSystem('frame', TimeSystem)
+        this.ecs.registerComponent(ThreeComponent);
+        this.ecs.registerComponent(ScreenShake);
+        this.ecs.registerComponent(MoveAlongRing);
+        this.ecs.registerComponent(Move);
+        this.ecs.registerComponent(Weapon);
+        this.ecs.registerComponent(Collider);
+        this.ecs.registerComponent(ParticlesEmitter);
+        
+        // tags
+        this.ecs.registerTags(
+            'UpdateShader', 
+            'Controllable', 'CameraTarget',
+            'Bullet', 'Enemy', 'Particle',
+            'Explodes'
+        );
 
-        this.ecs.createEntity(
-            {id: 'test', c: {
-                time: {
-                type:'DeleteTimer', 
-                time_left:120
-            }}})
+        // systems
+        this.ecs.registerSystem('frame', TimeSystem);
+        this.ecs.registerSystem('frame', ControlSystem);
+        this.ecs.registerSystem('frame', WeaponSystem, [this.entityFactory]);
+        this.ecs.registerSystem('frame', ParticlesSystem, [this.entityFactory]);
+        this.ecs.registerSystem('frame', MoveSystem);
+        this.ecs.registerSystem('frame', CollisionSystem);
+        this.ecs.registerSystem('frame', ThreeSystem, [this.ts]);
+        this.ecs.registerSystem('frame', DeleteSystem);
 
-        this.resize()
+        // create entities
+        this.entityFactory.createGameLoop();
+        this.entityFactory.createPlanet();
+        this.entityFactory.createRings();
+        this.entityFactory.createBackground();
+        this.entityFactory.createPlayer();
+        this.entityFactory.createEnemies();
+
+        this.resize();
         addEventListener('resize', () => this.resize(), false);
         requestAnimationFrame((t) => this.update(t));
     }
@@ -30,7 +76,8 @@ class App {
         let delta = (time - this.lastTime);
         delta = Math.min(delta, 0.1);
         this.lastTime = time;
-        
+        this.ecs.getEntity('game').getOne('GameLoop').update({time, delta})
+
         this.ecs.runSystems('frame');
         this.ecs.tick();
         this.render(time, delta);
