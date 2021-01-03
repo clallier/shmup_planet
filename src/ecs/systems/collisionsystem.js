@@ -6,9 +6,7 @@ export default class CollisionSystem extends System {
       .fromAll('Collider').persist();
   }
 
-  update() {
-    const loop = this.world.getEntity('game').getOne('GameLoop');
-    
+  update() {    
     const entities = this.colliderQy.execute();
     entities.forEach(e => {
       const e_collider = e.getOne('Collider');

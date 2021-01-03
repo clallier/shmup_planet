@@ -14,3 +14,11 @@ export class ScreenShake extends Component {
         duration: 0.1
     }
 }
+
+export class TargetColor extends Component {
+    static properties = {
+        color: null,
+        time: 0,
+        duration: 1
+    }
+}

@@ -1575,6 +1575,14 @@ class ScreenShake extends src.Component {
     }
 }
 
+class TargetColor extends src.Component {
+    static properties = {
+        color: null,
+        time: 0,
+        duration: 1
+    }
+}
+
 // threejs.org/license
 const REVISION = '122';
 const MOUSE = { LEFT: 0, MIDDLE: 1, RIGHT: 2, ROTATE: 0, DOLLY: 1, PAN: 2 };
@@ -46857,6 +46865,9 @@ class TimeSystem extends src.System {
   init() {
     this.timerQy = this.createQuery()
       .fromAll('DeleteTimer').persist();
+
+    this.screenShakeQy = this.createQuery()
+      .fromAll('ScreenShake').persist();
   }
 
   update() {
@@ -46873,6 +46884,18 @@ class TimeSystem extends src.System {
         e.addComponent({type: 'Destroy'});
       }
     });
+
+    this.screenShakeQy.execute().forEach(e => {
+      const screenShake = e.getOne('ScreenShake');
+      if(screenShake == null) return;
+
+      screenShake.duration -= loop.delta;
+      screenShake.update();
+
+      if(screenShake.duration <= 0) {
+          e.removeComponent(screenShake);
+      }
+  });
   }
 }
 
@@ -46894,6 +46917,9 @@ class ThreeSystem extends src.System {
             
         this.screenShakeQy = this.createQuery()
             .fromAll('ThreeComponent', 'ScreenShake').persist();
+
+        this.targetColorQy = this.createQuery()
+            .fromAll('ThreeComponent', 'TargetColor').persist();
     }
 
     update() {
@@ -46955,13 +46981,21 @@ class ThreeSystem extends src.System {
             this.camera.position.x += Math.random() * p - p/2;
             this.camera.position.y += Math.random() * p - p/2;
             this.camera.position.z += Math.random() * p - p/2;
-            
-            screenShake.duration -= loop.delta;
-            screenShake.update();
+        });
 
-            if(screenShake.duration <= 0) {
-                e.removeComponent(screenShake);
-            }
+        this.targetColorQy.execute().forEach(e => {
+            const target = e.getOne('TargetColor');
+            const component = e.getOne('ThreeComponent');
+
+            if(target == null) return;
+            if(component == null) return;
+
+            const t = target.time / target.duration;
+            const mesh = component.mesh;
+            mesh.material.color.lerp(target.color, t);
+
+            target.time += loop.delta;
+            target.update();
         });
       }
 }
@@ -46976,6 +47010,8 @@ class MoveSystem extends src.System {
     }
 
     update() {
+        const loop = this.world.getEntity('game').getOne('GameLoop');
+
         this.moveAlongRingQy.execute().forEach(e => {
             const move = e.getOne('MoveAlongRing');
             const component = e.getOne('ThreeComponent');
@@ -46993,8 +47029,9 @@ class MoveSystem extends src.System {
             if (move.angle < move.min_angle)
                 move.angle += move.max_angle;
     
-            mesh.position.x = 0 + Math.cos(move.angle) * move.radius;
-            mesh.position.z = 0 + Math.sin(move.angle) * move.radius;
+            mesh.position.x = Math.cos(move.angle) * move.radius;
+            mesh.position.z = Math.sin(move.angle) * move.radius;
+            mesh.position.y = Math.sin(loop.time) * 2;
             mesh.lookAt(0, 0, 0);
             
             move.update();
@@ -47106,9 +47143,7 @@ class CollisionSystem extends src.System {
       .fromAll('Collider').persist();
   }
 
-  update() {
-    const loop = this.world.getEntity('game').getOne('GameLoop');
-    
+  update() {    
     const entities = this.colliderQy.execute();
     entities.forEach(e => {
       const e_collider = e.getOne('Collider');
@@ -48760,7 +48795,8 @@ class EntityFactory {
                 type: 'MoveAlongRing',
                 radius: 160,
                 angle: 0,
-                speed: 0
+                speed: 0,
+                decay: 0.96
             }, {
                 type: 'Weapon',
                 attack_timer: 2,
@@ -48809,7 +48845,7 @@ class EntityFactory {
             tags: ['Particle'],
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createTetra(3, 0, 0x00aaaa),
+                mesh: MeshFactory.createTetra(3, 0, 0xff5500),
                 position: position,
                 rotation: direction,
             }, {
@@ -48818,6 +48854,10 @@ class EntityFactory {
                 decay: decay,
                 gravity: -0.06,
                 tilt_angle: tilt
+            },{
+                type: 'TargetColor',
+                color: new Color(0xfff4d4),
+                duration: ttl
             },{
                 type: 'DeleteTimer',
                 time_left: ttl
@@ -48936,6 +48976,7 @@ class App {
         this.ecs.registerComponent(Weapon);
         this.ecs.registerComponent(Collider);
         this.ecs.registerComponent(ParticlesEmitter);
+        this.ecs.registerComponent(TargetColor);
         
         // tags
         this.ecs.registerTags(

@@ -5,6 +5,9 @@ export default class TimeSystem extends System {
   init() {
     this.timerQy = this.createQuery()
       .fromAll('DeleteTimer').persist();
+
+    this.screenShakeQy = this.createQuery()
+      .fromAll('ScreenShake').persist();
   }
 
   update() {
@@ -21,5 +24,17 @@ export default class TimeSystem extends System {
         e.addComponent({type: 'Destroy'});
       }
     });
+
+    this.screenShakeQy.execute().forEach(e => {
+      const screenShake = e.getOne('ScreenShake');
+      if(screenShake == null) return;
+
+      screenShake.duration -= loop.delta;
+      screenShake.update();
+
+      if(screenShake.duration <= 0) {
+          e.removeComponent(screenShake);
+      }
+  })
   }
 }

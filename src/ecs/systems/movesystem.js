@@ -10,6 +10,8 @@ export default class MoveSystem extends System {
     }
 
     update() {
+        const loop = this.world.getEntity('game').getOne('GameLoop');
+
         this.moveAlongRingQy.execute().forEach(e => {
             const move = e.getOne('MoveAlongRing');
             const component = e.getOne('ThreeComponent');
@@ -27,8 +29,9 @@ export default class MoveSystem extends System {
             if (move.angle < move.min_angle)
                 move.angle += move.max_angle;
     
-            mesh.position.x = 0 + Math.cos(move.angle) * move.radius;
-            mesh.position.z = 0 + Math.sin(move.angle) * move.radius;
+            mesh.position.x = Math.cos(move.angle) * move.radius;
+            mesh.position.z = Math.sin(move.angle) * move.radius;
+            mesh.position.y = Math.sin(loop.time) * 2;
             mesh.lookAt(0, 0, 0);
             
             move.update();

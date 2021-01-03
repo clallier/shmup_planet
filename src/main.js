@@ -1,6 +1,6 @@
 import {Destroy, DeleteTimer} from './ecs/components/deletetimer';
 import GameLoop from './ecs/components/gameloop';
-import {ThreeComponent, ScreenShake} from './ecs/components/threecomponent';
+import {ThreeComponent, ScreenShake, TargetColor} from './ecs/components/threecomponent';
 import {MoveAlongRing, Move} from './ecs/components/move';
 import Weapon from './ecs/components/weapon';
 import Collider from './ecs/components/collider';
@@ -39,6 +39,7 @@ class App {
         this.ecs.registerComponent(Weapon);
         this.ecs.registerComponent(Collider);
         this.ecs.registerComponent(ParticlesEmitter);
+        this.ecs.registerComponent(TargetColor);
         
         // tags
         this.ecs.registerTags(

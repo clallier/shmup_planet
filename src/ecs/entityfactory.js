@@ -1,4 +1,4 @@
-import { Vector3 } from "three";
+import { Color, Vector3 } from "three";
 import MeshFactory from "../meshfactory";
 import fragment from '../shaders/fragment.glsl';
 import vertex from '../shaders/vertex.glsl';
@@ -67,7 +67,8 @@ export default class EntityFactory {
                 type: 'MoveAlongRing',
                 radius: 160,
                 angle: 0,
-                speed: 0
+                speed: 0,
+                decay: 0.96
             }, {
                 type: 'Weapon',
                 attack_timer: 2,
@@ -116,7 +117,7 @@ export default class EntityFactory {
             tags: ['Particle'],
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createTetra(3, 0, 0x00aaaa),
+                mesh: MeshFactory.createTetra(3, 0, 0xff5500),
                 position: position,
                 rotation: direction,
             }, {
@@ -125,6 +126,10 @@ export default class EntityFactory {
                 decay: decay,
                 gravity: -0.06,
                 tilt_angle: tilt
+            },{
+                type: 'TargetColor',
+                color: new Color(0xfff4d4),
+                duration: ttl
             },{
                 type: 'DeleteTimer',
                 time_left: ttl

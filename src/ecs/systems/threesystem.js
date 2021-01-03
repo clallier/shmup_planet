@@ -19,6 +19,9 @@ export default class ThreeSystem extends System {
             
         this.screenShakeQy = this.createQuery()
             .fromAll('ThreeComponent', 'ScreenShake').persist();
+
+        this.targetColorQy = this.createQuery()
+            .fromAll('ThreeComponent', 'TargetColor').persist();
     }
 
     update() {
@@ -80,13 +83,21 @@ export default class ThreeSystem extends System {
             this.camera.position.x += Math.random() * p - p/2;
             this.camera.position.y += Math.random() * p - p/2;
             this.camera.position.z += Math.random() * p - p/2;
-            
-            screenShake.duration -= loop.delta;
-            screenShake.update();
+        })
 
-            if(screenShake.duration <= 0) {
-                e.removeComponent(screenShake);
-            }
+        this.targetColorQy.execute().forEach(e => {
+            const target = e.getOne('TargetColor');
+            const component = e.getOne('ThreeComponent');
+
+            if(target == null) return;
+            if(component == null) return;
+
+            const t = target.time / target.duration;
+            const mesh = component.mesh;
+            mesh.material.color.lerp(target.color, t);
+
+            target.time += loop.delta;
+            target.update();
         })
       }
 }
