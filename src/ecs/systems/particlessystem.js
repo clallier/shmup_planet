@@ -22,9 +22,9 @@ export default class ParticlesSystem extends System {
                 for (let i = 0; i < emitter.particles; i++) {
                     const tilt = Math.random() * 0.1;
                     const decay = Math.random() * 0.1 + 0.9; 
-                    const ttl = Math.random() + 1.0; 
+                    const ttl = Math.random() + 1.5; 
                     // angle on ground plane
-                    const velocity = 3;
+                    const velocity = 3.5;
                     const xz_angle = Math.random() * 2 * Math.PI;
                     // start position 
                     const position = mesh.position;

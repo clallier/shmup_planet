@@ -22,3 +22,12 @@ export class TargetColor extends Component {
         duration: 1
     }
 }
+
+export class Trail extends Component {
+    static properties = {
+        particles: [],
+        durations: [],
+        max_particles: 100,
+        max_durations: 1
+    }
+}

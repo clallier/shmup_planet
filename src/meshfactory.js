@@ -2,7 +2,8 @@ import {
     Vector3, Mesh,
     IcosahedronGeometry, RingGeometry, TetrahedronGeometry,
     BoxGeometry,
-    ShaderMaterial, MeshBasicMaterial, MeshDepthMaterial
+    ShaderMaterial, MeshBasicMaterial,
+    BufferGeometry, PointsMaterial, Points
 } from "three";
 
 export default class MeshFactory {
@@ -34,7 +35,7 @@ export default class MeshFactory {
             outerRadius,
             60, // segments largeur
             1); // segments profondeur
-        const material = new MeshBasicMaterial ({
+        const material = new MeshBasicMaterial({
             color: color
         });
         const mesh = new Mesh(geometry, material);
@@ -50,7 +51,7 @@ export default class MeshFactory {
         color = 0xffff00,
         position = new Vector3()) {
         const geometry = new TetrahedronGeometry(
-            radius, 
+            radius,
             detail); // detail
 
         const material = new MeshBasicMaterial({
@@ -73,6 +74,21 @@ export default class MeshFactory {
             color: color
         });
         const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+
+        return mesh;
+    }
+
+    static createPoints(
+        color = 0xffff00,
+        position = new Vector3()) {
+        const geometry = new BufferGeometry();
+        const material = new PointsMaterial({
+            color: color,
+            size: 40,
+            vertexColors: true
+        });
+        const mesh = new Points(geometry, material);
         mesh.position.copy(position);
 
         return mesh;

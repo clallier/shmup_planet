@@ -1,5 +1,6 @@
 import { System } from "ape-ecs";
 import { Vector3 } from "three";
+import MeshFactory from "../../meshfactory";
 
 export default class ThreeSystem extends System {
     init(threeScene) {
@@ -22,6 +23,9 @@ export default class ThreeSystem extends System {
 
         this.targetColorQy = this.createQuery()
             .fromAll('ThreeComponent', 'TargetColor').persist();
+
+        this.trailQy = this.createQuery()
+            .fromAll('ThreeComponent', 'Trail').persist();
     }
 
     update() {
@@ -98,6 +102,26 @@ export default class ThreeSystem extends System {
 
             target.time += loop.delta;
             target.update();
+        })
+
+        this.trailQy.execute().forEach(e => {
+            const trail = e.getOne('Trail');
+            const component = e.getOne('ThreeComponent');
+
+            if(trail == null) return;
+            if(component == null) return;
+
+            const mesh = component.mesh;
+            // create + store trail particle
+            if (trail.particles.length < trail.max_particles) {
+                const p = MeshFactory.createPoints(0xffffff, mesh.position);
+                trail.particles.push(p);
+                trail.durations.push(0);
+                this.scene.add(p);    
+            }            
+            // update durations
+
+            trail.update();
         })
       }
 }

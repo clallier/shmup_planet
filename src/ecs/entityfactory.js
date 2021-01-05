@@ -75,6 +75,12 @@ export default class EntityFactory {
                 next_attack: 0.5,
                 is_active: true,
                 infinite_ammo: true
+            }, {
+                type: 'Trail',
+                attack_timer: 2,
+                next_attack: 0.5,
+                is_active: true,
+                infinite_ammo: true
             }]
         });
     }
@@ -93,13 +99,17 @@ export default class EntityFactory {
                 mesh: mesh,
                 position: position,
                 rotation: direction,
-            }, {
+            },{
                 type: 'Move',
                 velocity: direction.multiplyScalar(2)
-            }, {
+            },{
+                type: 'TargetColor',
+                color: new Color(0xfff4d4),
+                duration: 1
+            },{
                 type: 'DeleteTimer',
                 time_left: 1
-            }, {
+            },{
                 type: 'Collider',
                 against: 'Enemy'
             }]
