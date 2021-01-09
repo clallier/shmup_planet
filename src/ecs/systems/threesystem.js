@@ -75,8 +75,6 @@ export default class ThreeSystem extends System {
             this.target.x = Math.cos(futur_angle) * r;
             this.target.z = Math.sin(futur_angle) * r;
             this.camera.position.lerp(this.target, 0.3);
-            
-            this.camera.lookAt(0, 0, 0);
             this.camera.updateProjectionMatrix();
         })
 
@@ -116,15 +114,24 @@ export default class ThreeSystem extends System {
             if(component == null) return;
 
             const mesh = component.mesh;
-            // create + store trail particle
-            if (trail.particles.length < trail.max_particles) {
-                const p = MeshFactory.createPoints(Palette.light, mesh.position);
-                trail.particles.push(p);
-                trail.durations.push(0);
-                this.scene.add(p);    
-            }            
-            // update durations
+            if(trail.emitter == null) {
+                // create trail particles
+                const p = MeshFactory.createPoints({
+                    position: mesh.position,
+                    count: trail.max_particles,
+                    system_size: 20
+                });
 
+                this.scene.add(p);
+                trail.emitter = p;
+            }
+
+            if(trail.duration <= 0) {
+                // TODO 
+            }
+
+            // update durations
+            trail.duration -= loop.delta;
             trail.update();
         })
       }

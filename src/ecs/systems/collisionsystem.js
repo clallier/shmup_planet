@@ -36,7 +36,6 @@ export default class CollisionSystem extends System {
             i.addComponent({type: 'ParticlesEmitter'});
             i.addComponent({type: 'ScreenShake'});
             i.addComponent({type: 'DeleteTimer', time_left: 0.1});
-            
           }
         }
       })

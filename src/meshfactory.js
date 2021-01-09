@@ -1,9 +1,10 @@
 import {
-    Vector3, Mesh,
+    Vector3, Mesh, Geometry,
     IcosahedronGeometry, RingGeometry, TetrahedronGeometry,
     BoxGeometry,
     ShaderMaterial, MeshBasicMaterial,
-    BufferGeometry, PointsMaterial, Points
+    PointsMaterial, Points, 
+    CylinderBufferGeometry
 } from "three";
 
 export class Palette {
@@ -96,18 +97,53 @@ export class MeshFactory {
         return mesh;
     }
 
-    static createPoints(
-        color = Palette.pink,
-        position = new Vector3()) {
-        const geometry = new BufferGeometry();
+    static createPoints(config = {}) {
+        const color = config.color || Palette.light;
+        const position = config.position || new Vector3();
+        const count = config.count || 100;
+        const point_size = config.point_size || 1;
+        const system_size = config.system_size || 5;
+
+        const geometry = new Geometry();
         const material = new PointsMaterial({
-            color: color,
-            size: 40,
-            vertexColors: true
+            color,
+            size: point_size
         });
+
+        for(let i=0; i<count; i++) {
+            geometry.vertices.push(
+                new Vector3()
+                    .random()
+                    .addScalar(-0.5)
+                    .setLength(system_size)
+            );
+        }
+        // Three.ParticlesSystem
         const mesh = new Points(geometry, material);
         mesh.position.copy(position);
+        return mesh;
+    }
 
+    static createCylinder(config = {}) {
+        const radiusTop = config.radiusTop || 4;
+        const radiusBottom = config.radiusBottom || 4;
+        const height = config.height || 4;
+        const radialSegments = config.radialSegments || 4;
+        const color = config.color || Palette.debug_color;
+        const position = config.position || new Vector3();
+      
+        var geometry = new CylinderBufferGeometry(
+            radiusTop,
+            radiusBottom,
+            height,
+            radialSegments);
+
+        const material = new MeshBasicMaterial({
+            color
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+        
         return mesh;
     }
 }

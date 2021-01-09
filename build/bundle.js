@@ -1585,10 +1585,9 @@ class TargetColor extends src.Component {
 
 class Trail extends src.Component {
     static properties = {
-        particles: [],
-        durations: [],
+        emitter: null,
         max_particles: 100,
-        max_durations: 1
+        duration: 1
     }
 }
 
@@ -30182,6 +30181,276 @@ class BoxGeometry extends Geometry {
 
 }
 
+class CylinderBufferGeometry extends BufferGeometry {
+
+	constructor( radiusTop, radiusBottom, height, radialSegments, heightSegments, openEnded, thetaStart, thetaLength ) {
+
+		super();
+		this.type = 'CylinderBufferGeometry';
+
+		this.parameters = {
+			radiusTop: radiusTop,
+			radiusBottom: radiusBottom,
+			height: height,
+			radialSegments: radialSegments,
+			heightSegments: heightSegments,
+			openEnded: openEnded,
+			thetaStart: thetaStart,
+			thetaLength: thetaLength
+		};
+
+		const scope = this;
+
+		radiusTop = radiusTop !== undefined ? radiusTop : 1;
+		radiusBottom = radiusBottom !== undefined ? radiusBottom : 1;
+		height = height || 1;
+
+		radialSegments = Math.floor( radialSegments ) || 8;
+		heightSegments = Math.floor( heightSegments ) || 1;
+
+		openEnded = openEnded !== undefined ? openEnded : false;
+		thetaStart = thetaStart !== undefined ? thetaStart : 0.0;
+		thetaLength = thetaLength !== undefined ? thetaLength : Math.PI * 2;
+
+		// buffers
+
+		const indices = [];
+		const vertices = [];
+		const normals = [];
+		const uvs = [];
+
+		// helper variables
+
+		let index = 0;
+		const indexArray = [];
+		const halfHeight = height / 2;
+		let groupStart = 0;
+
+		// generate geometry
+
+		generateTorso();
+
+		if ( openEnded === false ) {
+
+			if ( radiusTop > 0 ) generateCap( true );
+			if ( radiusBottom > 0 ) generateCap( false );
+
+		}
+
+		// build geometry
+
+		this.setIndex( indices );
+		this.setAttribute( 'position', new Float32BufferAttribute( vertices, 3 ) );
+		this.setAttribute( 'normal', new Float32BufferAttribute( normals, 3 ) );
+		this.setAttribute( 'uv', new Float32BufferAttribute( uvs, 2 ) );
+
+		function generateTorso() {
+
+			const normal = new Vector3();
+			const vertex = new Vector3();
+
+			let groupCount = 0;
+
+			// this will be used to calculate the normal
+			const slope = ( radiusBottom - radiusTop ) / height;
+
+			// generate vertices, normals and uvs
+
+			for ( let y = 0; y <= heightSegments; y ++ ) {
+
+				const indexRow = [];
+
+				const v = y / heightSegments;
+
+				// calculate the radius of the current row
+
+				const radius = v * ( radiusBottom - radiusTop ) + radiusTop;
+
+				for ( let x = 0; x <= radialSegments; x ++ ) {
+
+					const u = x / radialSegments;
+
+					const theta = u * thetaLength + thetaStart;
+
+					const sinTheta = Math.sin( theta );
+					const cosTheta = Math.cos( theta );
+
+					// vertex
+
+					vertex.x = radius * sinTheta;
+					vertex.y = - v * height + halfHeight;
+					vertex.z = radius * cosTheta;
+					vertices.push( vertex.x, vertex.y, vertex.z );
+
+					// normal
+
+					normal.set( sinTheta, slope, cosTheta ).normalize();
+					normals.push( normal.x, normal.y, normal.z );
+
+					// uv
+
+					uvs.push( u, 1 - v );
+
+					// save index of vertex in respective row
+
+					indexRow.push( index ++ );
+
+				}
+
+				// now save vertices of the row in our index array
+
+				indexArray.push( indexRow );
+
+			}
+
+			// generate indices
+
+			for ( let x = 0; x < radialSegments; x ++ ) {
+
+				for ( let y = 0; y < heightSegments; y ++ ) {
+
+					// we use the index array to access the correct indices
+
+					const a = indexArray[ y ][ x ];
+					const b = indexArray[ y + 1 ][ x ];
+					const c = indexArray[ y + 1 ][ x + 1 ];
+					const d = indexArray[ y ][ x + 1 ];
+
+					// faces
+
+					indices.push( a, b, d );
+					indices.push( b, c, d );
+
+					// update group counter
+
+					groupCount += 6;
+
+				}
+
+			}
+
+			// add a group to the geometry. this will ensure multi material support
+
+			scope.addGroup( groupStart, groupCount, 0 );
+
+			// calculate new start value for groups
+
+			groupStart += groupCount;
+
+		}
+
+		function generateCap( top ) {
+
+			// save the index of the first center vertex
+			const centerIndexStart = index;
+
+			const uv = new Vector2();
+			const vertex = new Vector3();
+
+			let groupCount = 0;
+
+			const radius = ( top === true ) ? radiusTop : radiusBottom;
+			const sign = ( top === true ) ? 1 : - 1;
+
+			// first we generate the center vertex data of the cap.
+			// because the geometry needs one set of uvs per face,
+			// we must generate a center vertex per face/segment
+
+			for ( let x = 1; x <= radialSegments; x ++ ) {
+
+				// vertex
+
+				vertices.push( 0, halfHeight * sign, 0 );
+
+				// normal
+
+				normals.push( 0, sign, 0 );
+
+				// uv
+
+				uvs.push( 0.5, 0.5 );
+
+				// increase index
+
+				index ++;
+
+			}
+
+			// save the index of the last center vertex
+			const centerIndexEnd = index;
+
+			// now we generate the surrounding vertices, normals and uvs
+
+			for ( let x = 0; x <= radialSegments; x ++ ) {
+
+				const u = x / radialSegments;
+				const theta = u * thetaLength + thetaStart;
+
+				const cosTheta = Math.cos( theta );
+				const sinTheta = Math.sin( theta );
+
+				// vertex
+
+				vertex.x = radius * sinTheta;
+				vertex.y = halfHeight * sign;
+				vertex.z = radius * cosTheta;
+				vertices.push( vertex.x, vertex.y, vertex.z );
+
+				// normal
+
+				normals.push( 0, sign, 0 );
+
+				// uv
+
+				uv.x = ( cosTheta * 0.5 ) + 0.5;
+				uv.y = ( sinTheta * 0.5 * sign ) + 0.5;
+				uvs.push( uv.x, uv.y );
+
+				// increase index
+
+				index ++;
+
+			}
+
+			// generate indices
+
+			for ( let x = 0; x < radialSegments; x ++ ) {
+
+				const c = centerIndexStart + x;
+				const i = centerIndexEnd + x;
+
+				if ( top === true ) {
+
+					// face top
+
+					indices.push( i, i + 1, c );
+
+				} else {
+
+					// face bottom
+
+					indices.push( i + 1, i, c );
+
+				}
+
+				groupCount += 3;
+
+			}
+
+			// add a group to the geometry. this will ensure multi material support
+
+			scope.addGroup( groupStart, groupCount, top === true ? 1 : 2 );
+
+			// calculate new start value for groups
+
+			groupStart += groupCount;
+
+		}
+
+	}
+
+}
+
 class PolyhedronBufferGeometry extends BufferGeometry {
 
 	constructor( vertices, indices, radius, detail ) {
@@ -47067,18 +47336,53 @@ class MeshFactory {
         return mesh;
     }
 
-    static createPoints(
-        color = Palette.pink,
-        position = new Vector3()) {
-        const geometry = new BufferGeometry();
+    static createPoints(config = {}) {
+        const color = config.color || Palette.light;
+        const position = config.position || new Vector3();
+        const count = config.count || 100;
+        const point_size = config.point_size || 1;
+        const system_size = config.system_size || 5;
+
+        const geometry = new Geometry();
         const material = new PointsMaterial({
-            color: color,
-            size: 40,
-            vertexColors: true
+            color,
+            size: point_size
         });
+
+        for(let i=0; i<count; i++) {
+            geometry.vertices.push(
+                new Vector3()
+                    .random()
+                    .addScalar(-0.5)
+                    .setLength(system_size)
+            );
+        }
+        // Three.ParticlesSystem
         const mesh = new Points(geometry, material);
         mesh.position.copy(position);
+        return mesh;
+    }
 
+    static createCylinder(config = {}) {
+        const radiusTop = config.radiusTop || 4;
+        const radiusBottom = config.radiusBottom || 4;
+        const height = config.height || 4;
+        const radialSegments = config.radialSegments || 4;
+        const color = config.color || Palette.debug_color;
+        const position = config.position || new Vector3();
+      
+        var geometry = new CylinderBufferGeometry(
+            radiusTop,
+            radiusBottom,
+            height,
+            radialSegments);
+
+        const material = new MeshBasicMaterial({
+            color
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+        
         return mesh;
     }
 }
@@ -47156,8 +47460,6 @@ class ThreeSystem extends src.System {
             this.target.x = Math.cos(futur_angle) * r;
             this.target.z = Math.sin(futur_angle) * r;
             this.camera.position.lerp(this.target, 0.3);
-            
-            this.camera.lookAt(0, 0, 0);
             this.camera.updateProjectionMatrix();
         });
 
@@ -47197,15 +47499,22 @@ class ThreeSystem extends src.System {
             if(component == null) return;
 
             const mesh = component.mesh;
-            // create + store trail particle
-            if (trail.particles.length < trail.max_particles) {
-                const p = MeshFactory.createPoints(Palette.light, mesh.position);
-                trail.particles.push(p);
-                trail.durations.push(0);
-                this.scene.add(p);    
-            }            
-            // update durations
+            if(trail.emitter == null) {
+                // create trail particles
+                const p = MeshFactory.createPoints({
+                    position: mesh.position,
+                    count: trail.max_particles,
+                    system_size: 20
+                });
 
+                this.scene.add(p);
+                trail.emitter = p;
+            }
+
+            if(trail.duration <= 0) ;
+
+            // update durations
+            trail.duration -= loop.delta;
             trail.update();
         });
       }
@@ -48109,12 +48418,18 @@ class EntityFactory {
     }
 
     static createPlanet() {
+
+        const mesh = MeshFactory.createPlanet(vertex, fragment);
+        mesh.add(MeshFactory.createPoints({
+            system_size: 40
+        }));
+
         this.ecs.createEntity({
             id: 'planet',
             tags: ['UpdateShader'],
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createPlanet(vertex, fragment)
+                mesh: mesh
             }]
         });
     }
@@ -48124,7 +48439,7 @@ class EntityFactory {
             id: 'ring1',
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createRing(80, 3)
+                mesh: MeshFactory.createRing(80, 3, Palette.dark_red)
             }]
         });
 
@@ -48132,21 +48447,118 @@ class EntityFactory {
             id: 'ring2',
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createRing(160, 0.5)
+                mesh: MeshFactory.createRing(160, 0.5, Palette.dark_red)
             }]
         });
     }
 
     static createPlayer() {
+        const group = new Group();
+        const mesh = new Mesh();
+        const body = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 3,
+            height: 3,
+            radialSegments: 4,
+            color: Palette.light,
+            position: new Vector3(0, -1, 0)
+        }); 
+        mesh.add(body);
+
+        const cockpit = MeshFactory.createCylinder({
+            radiusTop: 2.5,
+            radiusBottom: 3.4,
+            height: 1,
+            radialSegments: 4,
+            color: Palette.light_blue,
+            position: new Vector3(0, -1.5, 0)
+        });
+        mesh.add(cockpit);
+
+        const right_arm = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 3,
+            height: 6,
+            radialSegments: 4,
+            color: Palette.light,
+            position: new Vector3(-4, 0, 0)
+        }); 
+        mesh.add(right_arm);
+        
+        const right_line = MeshFactory.createCylinder({
+            radiusTop: 3,
+            radiusBottom: 3,
+            height: 0.5,
+            radialSegments: 4,
+            color: Palette.dark,
+            position: new Vector3(-4, -1, 0)
+        });
+        mesh.add(right_line);
+        
+        const right_reactor = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 1,
+            height: 1,
+            radialSegments: 4,
+            color: Palette.dark,
+            position: new Vector3(-4, -3.5, 0)
+        }); 
+        mesh.add(right_reactor);
+
+        const left_arm = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 3,
+            height: 6,
+            radialSegments: 4,
+            color: Palette.light,
+            position: new Vector3(4, 0, 0)
+        }); 
+        mesh.add(left_arm);
+        
+        const left_line = MeshFactory.createCylinder({
+            radiusTop: 3,
+            radiusBottom: 3,
+            height: 0.5,
+            radialSegments: 4,
+            color: Palette.dark,
+            position: new Vector3(4, -1, 0)
+        });
+        mesh.add(left_line);
+        
+        const left_reactor = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 1,
+            height: 1,
+            radialSegments: 4,
+            color: Palette.dark,
+            position: new Vector3(4, -3.5, 0)
+        }); 
+        mesh.add(left_reactor);
+
+        const center_reactor = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 1,
+            height: 1,
+            radialSegments: 4,
+            color: Palette.dark,
+            position: new Vector3(0, -3, 0)
+        }); 
+        mesh.add(center_reactor);
+
+        // construction
+        mesh.rotateX(Math.PI / 2);
+        group.add(mesh);
+
         this.ecs.createEntity({
             id: 'player',
             tags: ['Controllable', 'CameraTarget'],
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createTetra(6, 0, Palette.yellow),
+                mesh: group,
             }, {
                 type: 'MoveAlongRing',
                 radius: 160,
+                angle: Math.PI / 2,
                 decay: 0.96
             }, {
                 type: 'Weapon',
@@ -48155,11 +48567,7 @@ class EntityFactory {
                 is_active: true,
                 infinite_ammo: true
             }, {
-                type: 'Trail',
-                attack_timer: 2,
-                next_attack: 0.5,
-                is_active: true,
-                infinite_ammo: true
+                type: 'Trail'
             }]
         });
     }
@@ -48253,10 +48661,17 @@ class EntityFactory {
             }
         }
 
-        const mesh = new Mesh(
+        const mesh = new Mesh();
+        mesh.add(new Mesh(
             BufferGeometryUtils.mergeBufferGeometries(geoms), 
             material
-        );
+        ));
+
+        mesh.add(MeshFactory.createPoints({
+            point_size: 3,
+            system_size: 200
+        }));
+
         this.ecs.createEntity({
             id: `asteroids`,
             components: [{
@@ -48273,6 +48688,7 @@ class EntityFactory {
             // const attack_timer = Math.random() * 4;
             // const next_attack = e.attack_timer; 
             const angle = Math.random() * 2 * Math.PI;
+            const size = Math.random() * 5 + 10;
             const position = new Vector3(
                 Math.cos(angle) * radius,
                 0,
@@ -48284,7 +48700,7 @@ class EntityFactory {
                 tags: ['Enemy', 'Explodes'],
                 components: [{
                     type: 'ThreeComponent',
-                    mesh: MeshFactory.createTetra(12),
+                    mesh: MeshFactory.createTetra(size, 1, Palette.red),
                     position: position
                 }, {
                     type: 'MoveAlongRing',
@@ -48416,7 +48832,6 @@ class CollisionSystem extends src.System {
             i.addComponent({type: 'ParticlesEmitter'});
             i.addComponent({type: 'ScreenShake'});
             i.addComponent({type: 'DeleteTimer', time_left: 0.1});
-            
           }
         }
       });
