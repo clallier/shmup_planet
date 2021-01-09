@@ -3,7 +3,6 @@ import { Scene, WebGLRenderer, PerspectiveCamera, FogExp2, ReinhardToneMapping, 
 import { WEBGL } from 'three/examples/jsm/WebGL.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { DotScreenPass } from 'three/examples/jsm/postprocessing/DotScreenPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 export default class ThreeScene {

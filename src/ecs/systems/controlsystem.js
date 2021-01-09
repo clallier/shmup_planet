@@ -3,6 +3,7 @@ import { System } from "ape-ecs";
 export default class ControlSystem extends System {
     init() {
         this.event = null;
+        this.force = 0.008;
         this.controllableQy = this.createQuery()
             .fromAll('Controllable', 'MoveAlongRing');
 
@@ -21,10 +22,10 @@ export default class ControlSystem extends System {
             const move = entity.getOne('MoveAlongRing');
             
             if (this.event == 'move_left')
-                move.speed += 0.01;
+                move.speed += this.force;
                 
             if (this.event == 'move_right')
-                move.speed -= 0.01;
+                move.speed -= this.force;
         });
 
         this.event = null;

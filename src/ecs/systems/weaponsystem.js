@@ -31,7 +31,7 @@ export default class WeaponSystem extends System {
         const dir = new Vector3();
         mesh.getWorldDirection(dir);
         this.entityFactory.createBullet(weapon.ammo_type, pos, dir);
-        e.addComponent({type:'ScreenShake', power: 5, duration: 0.1})
+        e.addComponent({type:'ScreenShake', power: 3, duration: 0.05})
       }
 
       weapon.update();

@@ -41,15 +41,19 @@ export default class ThreeSystem extends System {
                 if(component.rotation != null)
                     mesh.lookAt(component.rotation);
                 this.scene.add(mesh);
-            } else if (c.op == 'add' && c.type == 'Destroy') {
+            }
+            else if (c.op == 'add' && c.type == 'Destroy') {
                 const e = this.world.getEntity(c.entity);
                 if(e == null) return;
                 const component = e.getOne('ThreeComponent');
                 if(component == null) return;
                 // console.log(`removed mesh from ${c.entity}`);
                 const mesh = component.mesh;
+                mesh.geometry.dispose();
+                mesh.material.dispose();
                 this.scene.remove(mesh);
-            }
+                this.threeScene.renderer.renderLists.dispose();
+            } 
         });
 
         this.updateShaderQy.execute().forEach(e => {
@@ -66,7 +70,7 @@ export default class ThreeSystem extends System {
             const r = move.radius + 20 + Math.abs(move.speed) * 50;
             const futur_angle = move.angle + move.speed * 4;
             // console.log(h);
-            this.camera.fov = 100 + h*h;
+            this.camera.fov = 100 + 2*h*h;
             this.target.y = 15 + h;
             this.target.x = Math.cos(futur_angle) * r;
             this.target.z = Math.sin(futur_angle) * r;

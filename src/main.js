@@ -50,7 +50,7 @@ class App {
             'Explodes'
         );
 
-        // systems
+        // systems // TODO possible d'utiliser new XXXSystem(xxx, yyy)
         this.ecs.registerSystem('frame', TimeSystem);
         this.ecs.registerSystem('frame', ControlSystem);
         this.ecs.registerSystem('frame', WeaponSystem, [this.entityFactory]);

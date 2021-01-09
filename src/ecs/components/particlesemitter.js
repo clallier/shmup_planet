@@ -2,6 +2,6 @@ import { Component } from "ape-ecs";
 
 export default class ParticlesEmitter extends Component {
   static properties = {
-    particles:1000,
+    particles:20
   }
 }

@@ -28,7 +28,7 @@ export default class MeshFactory {
 
     static createRing(outerRadius = 1.0,
         width = 1.0,
-        color = 0xff00ff,
+        color = 0xffffff,
         position = new Vector3()) {
         const geometry = new RingGeometry(
             outerRadius - width,

@@ -1,4 +1,6 @@
-import { Color, Vector3 } from "three";
+import { Color, Matrix4, Mesh, TetrahedronBufferGeometry, Vector3, MeshBasicMaterial } from "three";
+import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+
 import MeshFactory from "../meshfactory";
 import fragment from '../shaders/fragment.glsl';
 import vertex from '../shaders/vertex.glsl';
@@ -43,7 +45,7 @@ export default class EntityFactory {
             id: 'ring1',
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createRing(80, 4)
+                mesh: MeshFactory.createRing(80, 3)
             }]
         });
 
@@ -51,7 +53,7 @@ export default class EntityFactory {
             id: 'ring2',
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createRing(160, 4)
+                mesh: MeshFactory.createRing(160, 0.5)
             }]
         });
     }
@@ -66,8 +68,6 @@ export default class EntityFactory {
             }, {
                 type: 'MoveAlongRing',
                 radius: 160,
-                angle: 0,
-                speed: 0,
                 decay: 0.96
             }, {
                 type: 'Weapon',
@@ -108,7 +108,7 @@ export default class EntityFactory {
                 duration: 1
             },{
                 type: 'DeleteTimer',
-                time_left: 1
+                time_left: 0.8
             },{
                 type: 'Collider',
                 against: 'Enemy'
@@ -149,32 +149,46 @@ export default class EntityFactory {
 
     createBackground() {
         // asteroids
+        const geoms = [];
+        const material = new MeshBasicMaterial({color: 0xff00ff});
+        const m4 = new Matrix4();
         for (let l = 0; l < 3; l++) {
             const n = 3 * (l + 1) * (l + 1);
             const s = Math.max(900 - 650 * l, 10);
             const r = 800 - 180 * (l * 1.5);
 
             // console.log(`l: ${l} n:${n}, s:${s}, r:${r}`);
+            const base = new TetrahedronBufferGeometry(s, l);
             for (let i = 0; i < n; i++) {
                 const radius = r;
                 const angle = i * (2 / n) * Math.PI;
 
-                const position = new Vector3(
+                const geo = base.clone();
+                m4.makeTranslation(
                     Math.cos(angle) * radius,
                     Math.sin(i) * 300,
                     Math.sin(angle) * radius
                 );
-
-                this.ecs.createEntity({
-                    id: `asteroid_${l}x${i}`,
-                    components: [{
-                        type: 'ThreeComponent',
-                        mesh: MeshFactory.createTetra(s, l, 0xff00ff),
-                        position: position
-                    }]
-                });
+                // m4.makeRotationAxis(
+                //     new Vector3(0,1, 0), 
+                //     Math.random() * Math.PI
+                // );
+                geo.applyMatrix4(m4);
+                geoms.push(geo);
             }
         }
+
+        const mesh = new Mesh(
+            BufferGeometryUtils.mergeBufferGeometries(geoms), 
+            material
+        );
+        this.ecs.createEntity({
+            id: `asteroids`,
+            components: [{
+                type: 'ThreeComponent',
+                mesh: mesh
+            }]
+        });
     }
 
     createEnemies() {
