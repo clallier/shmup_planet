@@ -1,9 +1,9 @@
 import { System } from "ape-ecs";
 import { Vector3 } from "three";
+import EntityFactory from '../entityfactory';
 
 export default class ParticlesSystem extends System {
-    init(entityFactory) {
-        this.entityFactory = entityFactory;
+    init() {
         this.subscribe('ParticlesEmitter');
     }
 
@@ -35,7 +35,7 @@ export default class ParticlesSystem extends System {
                         Math.sin(xz_angle) * velocity
                     )
                     // creation
-                    this.entityFactory.createParticle({
+                    EntityFactory.createParticle({
                         position,
                         direction,
                         decay,

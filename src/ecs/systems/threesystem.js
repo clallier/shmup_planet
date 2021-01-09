@@ -1,6 +1,6 @@
 import { System } from "ape-ecs";
 import { Vector3 } from "three";
-import MeshFactory from "../../meshfactory";
+import { MeshFactory, Palette } from "../../meshfactory";
 
 export default class ThreeSystem extends System {
     init(threeScene) {
@@ -118,7 +118,7 @@ export default class ThreeSystem extends System {
             const mesh = component.mesh;
             // create + store trail particle
             if (trail.particles.length < trail.max_particles) {
-                const p = MeshFactory.createPoints(0xffffff, mesh.position);
+                const p = MeshFactory.createPoints(Palette.light, mesh.position);
                 trail.particles.push(p);
                 trail.durations.push(0);
                 this.scene.add(p);    

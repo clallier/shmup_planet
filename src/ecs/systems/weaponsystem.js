@@ -1,9 +1,9 @@
 import { System } from "ape-ecs";
 import { Vector3 } from "three";
+import EntityFactory from '../entityfactory';
 
 export default class WeaponSystem extends System {
-  init(entityFactory) {
-    this.entityFactory = entityFactory;
+  init() {
     this.query = this.createQuery().fromAll('Weapon', 'ThreeComponent');
   }
 
@@ -30,7 +30,7 @@ export default class WeaponSystem extends System {
         const pos = mesh.position;
         const dir = new Vector3();
         mesh.getWorldDirection(dir);
-        this.entityFactory.createBullet(weapon.ammo_type, pos, dir);
+        EntityFactory.createBullet(weapon.ammo_type, pos, dir);
         e.addComponent({type:'ScreenShake', power: 3, duration: 0.05})
       }
 

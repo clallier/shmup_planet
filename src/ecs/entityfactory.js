@@ -1,16 +1,16 @@
 import { Color, Matrix4, Mesh, TetrahedronBufferGeometry, Vector3, MeshBasicMaterial } from "three";
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-import MeshFactory from "../meshfactory";
+import { MeshFactory, Palette } from "../meshfactory";
 import fragment from '../shaders/fragment.glsl';
 import vertex from '../shaders/vertex.glsl';
 
 export default class EntityFactory {
-    constructor(ecs) {
+    static init(ecs) {
         this.ecs = ecs;
     }
 
-    createGameLoop() {
+    static createGameLoop() {
         this.ecs.createEntity({
             id: 'game',
             components: [{
@@ -19,7 +19,7 @@ export default class EntityFactory {
         });
     }
 
-    createTest() {
+    static createTest() {
         this.ecs.createEntity({
             id: 'test',
             components: [{
@@ -29,7 +29,7 @@ export default class EntityFactory {
         });
     }
 
-    createPlanet() {
+    static createPlanet() {
         this.ecs.createEntity({
             id: 'planet',
             tags: ['UpdateShader'],
@@ -40,7 +40,7 @@ export default class EntityFactory {
         });
     }
 
-    createRings() {
+    static createRings() {
         this.ecs.createEntity({
             id: 'ring1',
             components: [{
@@ -58,13 +58,13 @@ export default class EntityFactory {
         });
     }
 
-    createPlayer() {
+    static createPlayer() {
         this.ecs.createEntity({
             id: 'player',
             tags: ['Controllable', 'CameraTarget'],
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createTetra(6)
+                mesh: MeshFactory.createTetra(6, 0, Palette.yellow),
             }, {
                 type: 'MoveAlongRing',
                 radius: 160,
@@ -85,10 +85,10 @@ export default class EntityFactory {
         });
     }
 
-    createBullet(type, position, direction) {
+    static createBullet(type, position, direction) {
         let mesh = null;
         if (type == 'bullet')
-            mesh = MeshFactory.createBox(4, 4, 4, 0x00aaaa);
+            mesh = MeshFactory.createBox(4, 4, 4, Palette.dark_blue);
         else
             console.warn('unknown bullet type');
 
@@ -104,7 +104,7 @@ export default class EntityFactory {
                 velocity: direction.multiplyScalar(2)
             },{
                 type: 'TargetColor',
-                color: new Color(0xfff4d4),
+                color: new Color(Palette.light),
                 duration: 1
             },{
                 type: 'DeleteTimer',
@@ -116,7 +116,7 @@ export default class EntityFactory {
         });
     }
 
-    createParticle(config = {}) {
+    static createParticle(config = {}) {
         const position = config.position || new Vector3();
         const direction = config.direction || new Vector3();
         const decay = config.decay || 0;
@@ -127,7 +127,7 @@ export default class EntityFactory {
             tags: ['Particle'],
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createTetra(3, 0, 0xff5500),
+                mesh: MeshFactory.createTetra(3, 0, Palette.red),
                 position: position,
                 rotation: direction,
             }, {
@@ -138,7 +138,7 @@ export default class EntityFactory {
                 tilt_angle: tilt
             },{
                 type: 'TargetColor',
-                color: new Color(0xfff4d4),
+                color: new Color(Palette.light),
                 duration: ttl
             },{
                 type: 'DeleteTimer',
@@ -147,13 +147,13 @@ export default class EntityFactory {
         });
     }
 
-    createBackground() {
+    static createBackground() {
         // asteroids
         const geoms = [];
-        const material = new MeshBasicMaterial({color: 0xff00ff});
+        const material = new MeshBasicMaterial({color: Palette.dark_red});
         const m4 = new Matrix4();
         for (let l = 0; l < 3; l++) {
-            const n = 3 * (l + 1) * (l + 1);
+            const n = 4 * (l + 1) ** 3;
             const s = Math.max(900 - 650 * l, 10);
             const r = 800 - 180 * (l * 1.5);
 
@@ -169,10 +169,6 @@ export default class EntityFactory {
                     Math.sin(i) * 300,
                     Math.sin(angle) * radius
                 );
-                // m4.makeRotationAxis(
-                //     new Vector3(0,1, 0), 
-                //     Math.random() * Math.PI
-                // );
                 geo.applyMatrix4(m4);
                 geoms.push(geo);
             }
@@ -191,7 +187,7 @@ export default class EntityFactory {
         });
     }
 
-    createEnemies() {
+    static createEnemies() {
         // TODO wave system
         const radius = 80;
         for (let i = 0; i < 3; i++) {
@@ -223,7 +219,7 @@ export default class EntityFactory {
         }
     }
 
-    createTestEnemy() {
+    static createTestEnemy() {
         const radius = 80;
         const angle = 0;
         const position = new Vector3(

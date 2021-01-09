@@ -6,7 +6,24 @@ import {
     BufferGeometry, PointsMaterial, Points
 } from "three";
 
-export default class MeshFactory {
+export class Palette {
+    static debug_color = 0x00ff00;
+
+    static light = 0xffebf3;
+    static grey = 0x805489;
+    static dark = 0x021423;
+
+    static yellow = 0xf7cb01;
+
+    static pink = 0xf700ff;
+    static red = 0xf73201; 
+    static dark_red = 0xc41c01;
+
+    static light_blue = 0x00cbff;
+    static dark_blue = 0x0076ab;
+}
+
+export class MeshFactory {
     static createPlanet(vertexShader, fragmentShader) {
         const geometry = new IcosahedronGeometry(20, 6);
         const material = new ShaderMaterial({
@@ -28,7 +45,7 @@ export default class MeshFactory {
 
     static createRing(outerRadius = 1.0,
         width = 1.0,
-        color = 0xffffff,
+        color = Palette.light,
         position = new Vector3()) {
         const geometry = new RingGeometry(
             outerRadius - width,
@@ -48,7 +65,7 @@ export default class MeshFactory {
     static createTetra(
         radius = 1.0,
         detail = 0,
-        color = 0xffff00,
+        color = Palette.pink,
         position = new Vector3()) {
         const geometry = new TetrahedronGeometry(
             radius,
@@ -67,7 +84,7 @@ export default class MeshFactory {
         width = 1.0,
         height = 1.0,
         depth = 1.0,
-        color = 0x00ffff,
+        color = Palette.light_blue,
         position = new Vector3()) {
         const geometry = new BoxGeometry(width, height, depth);
         const material = new MeshBasicMaterial({
@@ -80,7 +97,7 @@ export default class MeshFactory {
     }
 
     static createPoints(
-        color = 0xffff00,
+        color = Palette.pink,
         position = new Vector3()) {
         const geometry = new BufferGeometry();
         const material = new PointsMaterial({

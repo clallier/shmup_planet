@@ -4,6 +4,7 @@ import { WEBGL } from 'three/examples/jsm/WebGL.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { Palette } from './meshfactory';
 
 export default class ThreeScene {
     constructor() {
@@ -20,7 +21,7 @@ export default class ThreeScene {
         this.renderer.toneMappingExposure = Math.pow(1.2, 4.0);
         // this.renderer.shadowMap.enabled = true;
         // this.renderer.shadowMap.type = PCFSoftShadowMap;
-        this.renderer.setClearColor(0x052222, 1);
+        this.renderer.setClearColor(Palette.dark, 1);
         // camera
         this.camera = new PerspectiveCamera(100, 2, 0.1, 1000);
         this.camera.position.x = 0;
@@ -55,7 +56,7 @@ export default class ThreeScene {
         for (let i = 0; i < this.lights.length; i++)
             this.scene.add(this.lights[i]);
 
-        this.scene.fog = new FogExp2(0x052525, 0.0035);
+        this.scene.fog = new FogExp2(Palette.dark, 0.0035);
     }
 
     render(time, delta) {

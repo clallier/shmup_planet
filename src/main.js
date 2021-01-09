@@ -26,7 +26,7 @@ class App {
         this.lastTime = 0;
         this.ts = new ThreeScene();
         this.ecs = new World();
-        this.entityFactory = new EntityFactory(this.ecs);
+        EntityFactory.init(this.ecs);
         
         // components
         this.ecs.registerComponent(GameLoop);
@@ -53,20 +53,20 @@ class App {
         // systems // TODO possible d'utiliser new XXXSystem(xxx, yyy)
         this.ecs.registerSystem('frame', TimeSystem);
         this.ecs.registerSystem('frame', ControlSystem);
-        this.ecs.registerSystem('frame', WeaponSystem, [this.entityFactory]);
-        this.ecs.registerSystem('frame', ParticlesSystem, [this.entityFactory]);
+        this.ecs.registerSystem('frame', WeaponSystem);
+        this.ecs.registerSystem('frame', ParticlesSystem);
         this.ecs.registerSystem('frame', MoveSystem);
         this.ecs.registerSystem('frame', CollisionSystem);
         this.ecs.registerSystem('frame', ThreeSystem, [this.ts]);
         this.ecs.registerSystem('frame', DeleteSystem);
 
         // create entities
-        this.entityFactory.createGameLoop();
-        this.entityFactory.createPlanet();
-        this.entityFactory.createRings();
-        this.entityFactory.createBackground();
-        this.entityFactory.createPlayer();
-        this.entityFactory.createEnemies();
+        EntityFactory.createGameLoop();
+        EntityFactory.createPlanet();
+        EntityFactory.createRings();
+        EntityFactory.createBackground();
+        EntityFactory.createPlayer();
+        EntityFactory.createEnemies();
 
         this.resize();
         addEventListener('resize', () => this.resize(), false);
