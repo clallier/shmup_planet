@@ -31,7 +31,7 @@ export default class MoveSystem extends System {
     
             mesh.position.x = Math.cos(move.angle) * move.radius;
             mesh.position.z = Math.sin(move.angle) * move.radius;
-            mesh.position.y = Math.sin(loop.time) * 2;
+            mesh.position.y = 2 + Math.sin(loop.time) * 2;
             mesh.lookAt(0, 0, 0);
             
             move.update();

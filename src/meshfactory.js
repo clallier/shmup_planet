@@ -1,39 +1,31 @@
 import {
-    Vector3, Mesh, Geometry,
+    Vector3, Mesh, Geometry, BufferGeometry,
     IcosahedronGeometry, RingGeometry, TetrahedronGeometry,
     BoxGeometry,
     ShaderMaterial, MeshBasicMaterial,
     PointsMaterial, Points, 
-    CylinderBufferGeometry
+    CylinderBufferGeometry,
+    NormalBlending,
+    BufferAttribute
 } from "three";
+import Palette from './palette'
+import CanvasFactory from "./canvasfactory";
 
-export class Palette {
-    static debug_color = 0x00ff00;
+import displacement_fg from './shaders/displacement_fg.glsl';
+import displacement_vx from './shaders/displacement_vx.glsl';
+import particles_fg from './shaders/particles_fg.glsl';
+import particles_vx from './shaders/particles_vx.glsl';
 
-    static light = 0xffebf3;
-    static grey = 0x805489;
-    static dark = 0x021423;
-
-    static yellow = 0xf7cb01;
-
-    static pink = 0xf700ff;
-    static red = 0xf73201; 
-    static dark_red = 0xc41c01;
-
-    static light_blue = 0x00cbff;
-    static dark_blue = 0x0076ab;
-}
-
-export class MeshFactory {
-    static createPlanet(vertexShader, fragmentShader) {
+export default class MeshFactory {
+    static createPlanet() {
         const geometry = new IcosahedronGeometry(20, 6);
         const material = new ShaderMaterial({
             uniforms: {
                 // float initialized to 0
                 time: { type: "f", value: 0.0 },
             },
-            vertexShader: vertexShader,
-            fragmentShader: fragmentShader
+            vertexShader: displacement_vx,
+            fragmentShader: displacement_fg
         });
         // create a sphere and assign the material
         const mesh = new Mesh(
@@ -102,25 +94,52 @@ export class MeshFactory {
         const position = config.position || new Vector3();
         const count = config.count || 100;
         const point_size = config.point_size || 1;
-        const system_size = config.system_size || 5;
+        const system_size = config.system_size || 5;    
+        const texture = config.texture || CanvasFactory.createTexture();
+        const dynamic = config.dynamic || false;
 
-        const geometry = new Geometry();
-        const material = new PointsMaterial({
-            color,
-            size: point_size
-        });
+        const material = new ShaderMaterial({
+            uniforms: {
+                u_texture: {type: "t", value: texture},
+                u_size: {type: "f", value: point_size}
+            },
+            vertexShader: particles_vx,
+            fragmentShader: particles_fg,
+            alphaTest: 0.5, 
+            transparent: true,
+            blending: NormalBlending,
+        })
 
+        // const material = new PointsMaterial({
+        //     color,
+        //     size: point_size,
+        //     map: texture,
+        //     alphaTest: 0.5, 
+        //     transparent: true
+        // });
+
+        const geometry = new BufferGeometry();
+        const vertices = new Float32Array(count * 3);
+        const angles = new Float32Array(count);
+
+        const v3 = new Vector3()
         for(let i=0; i<count; i++) {
-            geometry.vertices.push(
-                new Vector3()
-                    .random()
-                    .addScalar(-0.5)
-                    .setLength(system_size)
-            );
+            v3.random()
+              .addScalar(-0.5)
+              .setLength(system_size);
+            
+            vertices.set(v3.toArray(), i*3);
+            angles[i] = Math.random() * Math.PI * 2;
         }
+        geometry.setAttribute('position', new BufferAttribute(vertices, 3));
+        geometry.setAttribute('angle', new BufferAttribute(angles, 1));
+
+        
         // Three.ParticlesSystem
         const mesh = new Points(geometry, material);
         mesh.position.copy(position);
+        mesh.dynamic = dynamic;
+        mesh.sortParticles = dynamic;
         return mesh;
     }
 

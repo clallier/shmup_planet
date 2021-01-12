@@ -4,7 +4,7 @@ import { WEBGL } from 'three/examples/jsm/WebGL.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { Palette } from './meshfactory';
+import Palette from './palette';
 
 export default class ThreeScene {
     constructor() {

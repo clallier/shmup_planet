@@ -1,9 +1,7 @@
 import { Color, Matrix4, Mesh, TetrahedronBufferGeometry, Vector3, MeshBasicMaterial, Group } from "three";
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-
-import { MeshFactory, Palette } from "../meshfactory";
-import fragment from '../shaders/fragment.glsl';
-import vertex from '../shaders/vertex.glsl';
+import MeshFactory from "../meshfactory";
+import Palette from "../palette";
 
 export default class EntityFactory {
     static init(ecs) {
@@ -30,8 +28,7 @@ export default class EntityFactory {
     }
 
     static createPlanet() {
-
-        const mesh = MeshFactory.createPlanet(vertex, fragment);
+        const mesh = MeshFactory.createPlanet();
         mesh.add(MeshFactory.createPoints({
             system_size: 40
         }));
@@ -160,7 +157,7 @@ export default class EntityFactory {
         // construction
         mesh.rotateX(Math.PI / 2);
         group.add(mesh);
-
+        
         this.ecs.createEntity({
             id: 'player',
             tags: ['Controllable', 'CameraTarget'],

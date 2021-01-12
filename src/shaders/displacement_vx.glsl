@@ -109,9 +109,7 @@ float pnoise(vec3 P,vec3 rep)
   return 2.2*n_xyz;
 }
 
-//******************************
-//        Second part
-//******************************
+//*********************************************
 /*
 Permet de stocker UV (qui specifie quel texel lire dans une texture en x,y - normalisés entre 0 et 1) 
 varying : permet de le passer ensuite au fragment shader

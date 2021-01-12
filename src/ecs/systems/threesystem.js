@@ -1,6 +1,7 @@
 import { System } from "ape-ecs";
 import { Vector3 } from "three";
-import { MeshFactory, Palette } from "../../meshfactory";
+import CanvasFactory from "../../canvasfactory";
+import MeshFactory from "../../meshfactory";
 
 export default class ThreeSystem extends System {
     init(threeScene) {
@@ -71,10 +72,12 @@ export default class ThreeSystem extends System {
             const futur_angle = move.angle + move.speed * 4;
             // console.log(h);
             this.camera.fov = 100 + 2*h*h;
-            this.target.y = 15 + h;
+            this.target.y = 20 + h + Math.sin(loop.time) * 1.7;
             this.target.x = Math.cos(futur_angle) * r;
             this.target.z = Math.sin(futur_angle) * r;
+            
             this.camera.position.lerp(this.target, 0.3);
+            this.camera.lookAt(0, 0, 0);
             this.camera.updateProjectionMatrix();
         })
 
@@ -116,10 +119,16 @@ export default class ThreeSystem extends System {
             const mesh = component.mesh;
             if(trail.emitter == null) {
                 // create trail particles
+                // TODO : get infos from component (trail or particle)
                 const p = MeshFactory.createPoints({
                     position: mesh.position,
                     count: trail.max_particles,
-                    system_size: 20
+                    system_size: 20,
+                    point_size : 8,
+                    texture: CanvasFactory.createTexture({
+                        shape: 'tri'
+                    }),
+                    dynamic: true 
                 });
 
                 this.scene.add(p);

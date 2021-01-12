@@ -47263,16 +47263,77 @@ class Palette {
     static dark_blue = 0x0076ab;
 }
 
+class CanvasFactory {
+    static createTexture(config = {}) {
+        const width = config.width || 32;
+        const height = config.height || 32;
+        const fillStyle = config.fillStyle || `#${Palette.light.toString(16)}`;
+        const shape = config.shape || 'rect';
+
+        const x = width / 2; 
+        const y = height / 2;
+        const radius = width / 2; 
+        
+        const canvas = document.createElement('canvas'); 
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = fillStyle;
+        if(shape == 'circle') {
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        else if (shape == 'rect') {
+            ctx.fillRect(0, 0, width, height);  
+        }
+        else if (shape == 'tri') {
+            CanvasFactory.poly(ctx, x, y, 3, radius);    
+            ctx.fill();    
+        }
+        const texture = new CanvasTexture(canvas);
+        return texture;
+    }
+
+    /*
+    * ctx: the canvas 2D context
+    * x, y: center point
+    * p: number of sides
+    * radius: the poly size
+    * http://scienceprimer.com/drawing-regular-polygons-javascript-canvas
+    */
+    static poly(ctx, x, y, p, radius) {
+        ctx.beginPath();
+        //ctx.moveTo(x +  size * Math.cos(0), y + size * Math.sin(0));
+        ctx.moveTo(x + radius, y);
+        for (let i=1; i<=p; i++) {
+            ctx.lineTo(
+                x + radius * Math.cos(i * 2 * Math.PI / p),
+                y + radius * Math.sin(i * 2 * Math.PI / p)
+            );
+        }
+        ctx.closePath();
+    }
+}
+
+var displacement_fg = "precision mediump float;varying vec2 vUv;varying float noise;void main(){vec4 color1=vec4(0.9,0.50,0.1,1.);vec4 color2=vec4(0.9,0.9,0.5,1.);gl_FragColor=mix(color2,color1,noise);}";
+
+var displacement_vx = "vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}vec4 mod289(vec4 x){return x-floor(x*(1./289.))*289.;}vec4 permute(vec4 x){return mod289(((x*34.)+1.)*x);}vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-.85373472095314*r;}vec3 fade(vec3 t){return t*t*t*(t*(t*6.-15.)+10.);}float pnoise(vec3 P,vec3 rep){vec3 Pi0=mod(floor(P),rep);vec3 Pi1=mod(Pi0+vec3(1.),rep);Pi0=mod289(Pi0);Pi1=mod289(Pi1);vec3 Pf0=fract(P);vec3 Pf1=Pf0-vec3(1.);vec4 ix=vec4(Pi0.x,Pi1.x,Pi0.x,Pi1.x);vec4 iy=vec4(Pi0.yy,Pi1.yy);vec4 iz0=Pi0.zzzz;vec4 iz1=Pi1.zzzz;vec4 ixy=permute(permute(ix)+iy);vec4 ixy0=permute(ixy+iz0);vec4 ixy1=permute(ixy+iz1);vec4 gx0=ixy0*(1./7.);vec4 gy0=fract(floor(gx0)*(1./7.))-.5;gx0=fract(gx0);vec4 gz0=vec4(.5)-abs(gx0)-abs(gy0);vec4 sz0=step(gz0,vec4(0.));gx0-=sz0*(step(0.,gx0)-.5);gy0-=sz0*(step(0.,gy0)-.5);vec4 gx1=ixy1*(1./7.);vec4 gy1=fract(floor(gx1)*(1./7.))-.5;gx1=fract(gx1);vec4 gz1=vec4(.5)-abs(gx1)-abs(gy1);vec4 sz1=step(gz1,vec4(0.));gx1-=sz1*(step(0.,gx1)-.5);gy1-=sz1*(step(0.,gy1)-.5);vec3 g000=vec3(gx0.x,gy0.x,gz0.x);vec3 g100=vec3(gx0.y,gy0.y,gz0.y);vec3 g010=vec3(gx0.z,gy0.z,gz0.z);vec3 g110=vec3(gx0.w,gy0.w,gz0.w);vec3 g001=vec3(gx1.x,gy1.x,gz1.x);vec3 g101=vec3(gx1.y,gy1.y,gz1.y);vec3 g011=vec3(gx1.z,gy1.z,gz1.z);vec3 g111=vec3(gx1.w,gy1.w,gz1.w);vec4 norm0=taylorInvSqrt(vec4(dot(g000,g000),dot(g010,g010),dot(g100,g100),dot(g110,g110)));g000*=norm0.x;g010*=norm0.y;g100*=norm0.z;g110*=norm0.w;vec4 norm1=taylorInvSqrt(vec4(dot(g001,g001),dot(g011,g011),dot(g101,g101),dot(g111,g111)));g001*=norm1.x;g011*=norm1.y;g101*=norm1.z;g111*=norm1.w;float n000=dot(g000,Pf0);float n100=dot(g100,vec3(Pf1.x,Pf0.yz));float n010=dot(g010,vec3(Pf0.x,Pf1.y,Pf0.z));float n110=dot(g110,vec3(Pf1.xy,Pf0.z));float n001=dot(g001,vec3(Pf0.xy,Pf1.z));float n101=dot(g101,vec3(Pf1.x,Pf0.y,Pf1.z));float n011=dot(g011,vec3(Pf0.x,Pf1.yz));float n111=dot(g111,Pf1);vec3 fade_xyz=fade(Pf0);vec4 n_z=mix(vec4(n000,n100,n010,n110),vec4(n001,n101,n011,n111),fade_xyz.z);vec2 n_yz=mix(n_z.xy,n_z.zw,fade_xyz.y);float n_xyz=mix(n_yz.x,n_yz.y,fade_xyz.x);return 2.2*n_xyz;}/*Permet de stocker UV(qui specifie quel texel lire dans une texture en x,y-normalisés entre 0 et 1)varying : permet de le passer ensuite au fragment shader*/varying vec2 vUv;varying float noise;uniform float time;float turbulence(vec3 p){float w=100.0;float t=-.5;for(float f=1.0;f<=10.0;f++){float power=pow(2.0,f);t+=abs(pnoise(vec3(power*p),vec3(10.0))/power);}return t;}void main(){vUv=uv;float hi_freq=5.0*pnoise(1.*position+vec3(time),vec3(100.));float low_freq=5.0*pnoise(0.1*position+vec3(time),vec3(100.));float size=sin(time*60.0);float wave_x=2.*cos(300.0*uv.x+time*67.0);float wave_y=2.*sin(16.0*uv.y+time*31.0);vec3 p=position+normal*low_freq;noise=low_freq;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}";
+
+var particles_fg = "precision mediump float;varying vec3 v_color;varying float v_angle;uniform sampler2D u_texture;void main(){float c=cos(v_angle);float s=sin(v_angle);vec2 p=gl_PointCoord-.5;vec2 rotated_uv=vec2((c*p.x+s*p.y)+.5,(c*p.y-s*p.x)+.5);vec4 tex_color=texture2D(u_texture,rotated_uv);vec4 base_color=vec4(v_color.xyz,tex_color.w);gl_FragColor=tex_color*base_color;}";
+
+var particles_vx = "varying vec3 v_color;varying float v_angle;uniform float u_size;attribute float angle;void main(){v_color=vec3(1.,1.,1.);v_angle=angle;vec4 pos=modelViewMatrix*vec4(position,1.);gl_PointSize=u_size+(300.0/length(pos));gl_Position=projectionMatrix*pos;}";
+
 class MeshFactory {
-    static createPlanet(vertexShader, fragmentShader) {
+    static createPlanet() {
         const geometry = new IcosahedronGeometry(20, 6);
         const material = new ShaderMaterial({
             uniforms: {
                 // float initialized to 0
                 time: { type: "f", value: 0.0 },
             },
-            vertexShader: vertexShader,
-            fragmentShader: fragmentShader
+            vertexShader: displacement_vx,
+            fragmentShader: displacement_fg
         });
         // create a sphere and assign the material
         const mesh = new Mesh(
@@ -47341,25 +47402,52 @@ class MeshFactory {
         const position = config.position || new Vector3();
         const count = config.count || 100;
         const point_size = config.point_size || 1;
-        const system_size = config.system_size || 5;
+        const system_size = config.system_size || 5;    
+        const texture = config.texture || CanvasFactory.createTexture();
+        const dynamic = config.dynamic || false;
 
-        const geometry = new Geometry();
-        const material = new PointsMaterial({
-            color,
-            size: point_size
+        const material = new ShaderMaterial({
+            uniforms: {
+                u_texture: {type: "t", value: texture},
+                u_size: {type: "f", value: point_size}
+            },
+            vertexShader: particles_vx,
+            fragmentShader: particles_fg,
+            alphaTest: 0.5, 
+            transparent: true,
+            blending: NormalBlending,
         });
 
+        // const material = new PointsMaterial({
+        //     color,
+        //     size: point_size,
+        //     map: texture,
+        //     alphaTest: 0.5, 
+        //     transparent: true
+        // });
+
+        const geometry = new BufferGeometry();
+        const vertices = new Float32Array(count * 3);
+        const angles = new Float32Array(count);
+
+        const v3 = new Vector3();
         for(let i=0; i<count; i++) {
-            geometry.vertices.push(
-                new Vector3()
-                    .random()
-                    .addScalar(-0.5)
-                    .setLength(system_size)
-            );
+            v3.random()
+              .addScalar(-0.5)
+              .setLength(system_size);
+            
+            vertices.set(v3.toArray(), i*3);
+            angles[i] = Math.random() * Math.PI * 2;
         }
+        geometry.setAttribute('position', new BufferAttribute(vertices, 3));
+        geometry.setAttribute('angle', new BufferAttribute(angles, 1));
+
+        
         // Three.ParticlesSystem
         const mesh = new Points(geometry, material);
         mesh.position.copy(position);
+        mesh.dynamic = dynamic;
+        mesh.sortParticles = dynamic;
         return mesh;
     }
 
@@ -47456,10 +47544,12 @@ class ThreeSystem extends src.System {
             const futur_angle = move.angle + move.speed * 4;
             // console.log(h);
             this.camera.fov = 100 + 2*h*h;
-            this.target.y = 15 + h;
+            this.target.y = 20 + h + Math.sin(loop.time) * 1.7;
             this.target.x = Math.cos(futur_angle) * r;
             this.target.z = Math.sin(futur_angle) * r;
+            
             this.camera.position.lerp(this.target, 0.3);
+            this.camera.lookAt(0, 0, 0);
             this.camera.updateProjectionMatrix();
         });
 
@@ -47501,10 +47591,16 @@ class ThreeSystem extends src.System {
             const mesh = component.mesh;
             if(trail.emitter == null) {
                 // create trail particles
+                // TODO : get infos from component (trail or particle)
                 const p = MeshFactory.createPoints({
                     position: mesh.position,
                     count: trail.max_particles,
-                    system_size: 20
+                    system_size: 20,
+                    point_size : 8,
+                    texture: CanvasFactory.createTexture({
+                        shape: 'tri'
+                    }),
+                    dynamic: true 
                 });
 
                 this.scene.add(p);
@@ -47551,7 +47647,7 @@ class MoveSystem extends src.System {
     
             mesh.position.x = Math.cos(move.angle) * move.radius;
             mesh.position.z = Math.sin(move.angle) * move.radius;
-            mesh.position.y = Math.sin(loop.time) * 2;
+            mesh.position.y = 2 + Math.sin(loop.time) * 2;
             mesh.lookAt(0, 0, 0);
             
             move.update();
@@ -48389,10 +48485,6 @@ var BufferGeometryUtils = {
 
 };
 
-var fragment = "precision mediump float;varying vec2 vUv;varying float noise;void main(){vec4 color1=vec4(0.9,0.50,0.1,1.);vec4 color2=vec4(0.9,0.9,0.5,1.);gl_FragColor=mix(color2,color1,noise);}";
-
-var vertex = "vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}vec4 mod289(vec4 x){return x-floor(x*(1./289.))*289.;}vec4 permute(vec4 x){return mod289(((x*34.)+1.)*x);}vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-.85373472095314*r;}vec3 fade(vec3 t){return t*t*t*(t*(t*6.-15.)+10.);}float pnoise(vec3 P,vec3 rep){vec3 Pi0=mod(floor(P),rep);vec3 Pi1=mod(Pi0+vec3(1.),rep);Pi0=mod289(Pi0);Pi1=mod289(Pi1);vec3 Pf0=fract(P);vec3 Pf1=Pf0-vec3(1.);vec4 ix=vec4(Pi0.x,Pi1.x,Pi0.x,Pi1.x);vec4 iy=vec4(Pi0.yy,Pi1.yy);vec4 iz0=Pi0.zzzz;vec4 iz1=Pi1.zzzz;vec4 ixy=permute(permute(ix)+iy);vec4 ixy0=permute(ixy+iz0);vec4 ixy1=permute(ixy+iz1);vec4 gx0=ixy0*(1./7.);vec4 gy0=fract(floor(gx0)*(1./7.))-.5;gx0=fract(gx0);vec4 gz0=vec4(.5)-abs(gx0)-abs(gy0);vec4 sz0=step(gz0,vec4(0.));gx0-=sz0*(step(0.,gx0)-.5);gy0-=sz0*(step(0.,gy0)-.5);vec4 gx1=ixy1*(1./7.);vec4 gy1=fract(floor(gx1)*(1./7.))-.5;gx1=fract(gx1);vec4 gz1=vec4(.5)-abs(gx1)-abs(gy1);vec4 sz1=step(gz1,vec4(0.));gx1-=sz1*(step(0.,gx1)-.5);gy1-=sz1*(step(0.,gy1)-.5);vec3 g000=vec3(gx0.x,gy0.x,gz0.x);vec3 g100=vec3(gx0.y,gy0.y,gz0.y);vec3 g010=vec3(gx0.z,gy0.z,gz0.z);vec3 g110=vec3(gx0.w,gy0.w,gz0.w);vec3 g001=vec3(gx1.x,gy1.x,gz1.x);vec3 g101=vec3(gx1.y,gy1.y,gz1.y);vec3 g011=vec3(gx1.z,gy1.z,gz1.z);vec3 g111=vec3(gx1.w,gy1.w,gz1.w);vec4 norm0=taylorInvSqrt(vec4(dot(g000,g000),dot(g010,g010),dot(g100,g100),dot(g110,g110)));g000*=norm0.x;g010*=norm0.y;g100*=norm0.z;g110*=norm0.w;vec4 norm1=taylorInvSqrt(vec4(dot(g001,g001),dot(g011,g011),dot(g101,g101),dot(g111,g111)));g001*=norm1.x;g011*=norm1.y;g101*=norm1.z;g111*=norm1.w;float n000=dot(g000,Pf0);float n100=dot(g100,vec3(Pf1.x,Pf0.yz));float n010=dot(g010,vec3(Pf0.x,Pf1.y,Pf0.z));float n110=dot(g110,vec3(Pf1.xy,Pf0.z));float n001=dot(g001,vec3(Pf0.xy,Pf1.z));float n101=dot(g101,vec3(Pf1.x,Pf0.y,Pf1.z));float n011=dot(g011,vec3(Pf0.x,Pf1.yz));float n111=dot(g111,Pf1);vec3 fade_xyz=fade(Pf0);vec4 n_z=mix(vec4(n000,n100,n010,n110),vec4(n001,n101,n011,n111),fade_xyz.z);vec2 n_yz=mix(n_z.xy,n_z.zw,fade_xyz.y);float n_xyz=mix(n_yz.x,n_yz.y,fade_xyz.x);return 2.2*n_xyz;}/*Permet de stocker UV(qui specifie quel texel lire dans une texture en x,y-normalisés entre 0 et 1)varying : permet de le passer ensuite au fragment shader*/varying vec2 vUv;varying float noise;uniform float time;float turbulence(vec3 p){float w=100.0;float t=-.5;for(float f=1.0;f<=10.0;f++){float power=pow(2.0,f);t+=abs(pnoise(vec3(power*p),vec3(10.0))/power);}return t;}void main(){vUv=uv;float hi_freq=5.0*pnoise(1.*position+vec3(time),vec3(100.));float low_freq=5.0*pnoise(0.1*position+vec3(time),vec3(100.));float size=sin(time*60.0);float wave_x=2.*cos(300.0*uv.x+time*67.0);float wave_y=2.*sin(16.0*uv.y+time*31.0);vec3 p=position+normal*low_freq;noise=low_freq;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}";
-
 class EntityFactory {
     static init(ecs) {
         this.ecs = ecs;
@@ -48418,8 +48510,7 @@ class EntityFactory {
     }
 
     static createPlanet() {
-
-        const mesh = MeshFactory.createPlanet(vertex, fragment);
+        const mesh = MeshFactory.createPlanet();
         mesh.add(MeshFactory.createPoints({
             system_size: 40
         }));
@@ -48548,7 +48639,7 @@ class EntityFactory {
         // construction
         mesh.rotateX(Math.PI / 2);
         group.add(mesh);
-
+        
         this.ecs.createEntity({
             id: 'player',
             tags: ['Controllable', 'CameraTarget'],
