@@ -30,7 +30,8 @@ export default class EntityFactory {
     static createPlanet() {
         const mesh = MeshFactory.createPlanet();
         mesh.add(MeshFactory.createPoints({
-            system_size: 40
+            system_size: 40,
+            point_size: 1
         }));
 
         this.ecs.createEntity({
@@ -195,11 +196,11 @@ export default class EntityFactory {
                 rotation: direction,
             },{
                 type: 'Move',
-                velocity: direction.multiplyScalar(2)
+                velocity: direction.clone().multiplyScalar(2)
             },{
                 type: 'TargetColor',
                 color: new Color(Palette.light),
-                duration: 1
+                duration: 0.8
             },{
                 type: 'DeleteTimer',
                 time_left: 0.8
@@ -207,7 +208,11 @@ export default class EntityFactory {
                 type: 'Collider',
                 against: 'Enemy'
             },{
-                type: 'Trail'
+                type: 'Trail',
+                count_per_s: 40,
+                particle_life: 0.8,
+                system_size: 4,
+                particle_velocity: direction.clone().multiplyScalar(-2)
             }]
         });
     }
@@ -277,8 +282,8 @@ export default class EntityFactory {
         ));
 
         mesh.add(MeshFactory.createPoints({
+            system_size: 200,
             point_size: 3,
-            system_size: 200
         }));
 
         this.ecs.createEntity({

@@ -6,7 +6,7 @@
 // default value is 0
 attribute float angle;
 attribute float hidden;
-
+attribute float size;
 // varying: used to communicate data 
 // from vertex shader to fragment shader
 varying vec4 v_color;
@@ -20,8 +20,8 @@ void main()
 {
 	v_color = (hidden < 0.5) ? vec4(1.) : vec4(0.);
 	v_angle = angle;
-
+	
 	vec4 pos = modelViewMatrix * vec4(position, 1.);
-	gl_PointSize = u_size + (300.0 / length(pos));
+	gl_PointSize = (u_size + size) * (300.0 / length(pos));
 	gl_Position = projectionMatrix * pos;
 }

@@ -47202,10 +47202,13 @@ class ParticlesEmitter extends src.Component {
 
 class Trail extends src.Component {
   static properties = {
-      particles: null,
-      n_per_s: 30,
-      particle_life: 0.3,
-      max_count: 200
+    emitter: null,
+    count_per_s: 40,
+    particle_life: 1,
+    particle_size: 4,
+    max_count: 40,
+    system_size: 20,
+    particle_velocity: null
   }
 }
 
@@ -48298,7 +48301,7 @@ var displacement_vx = "vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}vec
 
 var particles_fg = "precision mediump float;varying vec4 v_color;varying float v_angle;uniform sampler2D u_texture;void main(){float c=cos(v_angle);float s=sin(v_angle);vec2 p=gl_PointCoord-.5;vec2 rotated_uv=vec2((c*p.x+s*p.y)+.5,(c*p.y-s*p.x)+.5);vec4 tex_color=texture2D(u_texture,rotated_uv);gl_FragColor=tex_color*v_color;}";
 
-var particles_vx = "attribute float angle;attribute float hidden;varying vec4 v_color;varying float v_angle;uniform float u_size;void main(){v_color=(hidden<0.5)? vec4(1.): vec4(0.);v_angle=angle;vec4 pos=modelViewMatrix*vec4(position,1.);gl_PointSize=u_size+(300.0/length(pos));gl_Position=projectionMatrix*pos;}";
+var particles_vx = "attribute float angle;attribute float hidden;attribute float size;varying vec4 v_color;varying float v_angle;uniform float u_size;void main(){v_color=(hidden<0.5)? vec4(1.): vec4(0.);v_angle=angle;vec4 pos=modelViewMatrix*vec4(position,1.);gl_PointSize=(u_size+size)*(300.0/length(pos));gl_Position=projectionMatrix*pos;}";
 
 class MeshFactory {
     static createPlanet() {
@@ -48374,13 +48377,13 @@ class MeshFactory {
     }
 
     static createPoints(config = {}) {
-        const color = config.color || Palette.light;
         const position = config.position || new Vector3();
         const count = config.count || 100;
-        const point_size = config.point_size || 1;
+        const point_size = config.point_size || 0;
         const system_size = config.system_size || 5;    
         const texture = config.texture || CanvasFactory.createTexture();
         const dynamic = config.dynamic || false;
+        const geometry = config.geometry || MeshFactory.createRandomBufferGeometry(count, system_size);
 
         const material = new ShaderMaterial({
             uniforms: {
@@ -48389,23 +48392,11 @@ class MeshFactory {
             },
             vertexShader: particles_vx,
             fragmentShader: particles_fg,
-            alphaTest: 0.5, 
+            // alphaTest: 0.5, 
             transparent: true,
             blending: NormalBlending,
+            depthTest: true
         });
-
-        const geometry = new BufferGeometry();
-        const vertices = new Float32Array(count * 3);
-
-        const v3 = new Vector3();
-        for(let i=0; i<count; i++) {
-            v3.random()
-              .addScalar(-0.5)
-              .setLength(system_size);
-            
-            vertices.set(v3.toArray(), i*3);
-        }
-        geometry.setAttribute('position', new BufferAttribute(vertices, 3));
         
         // Three.ParticlesSystem
         const mesh = new Points(geometry, material);
@@ -48437,6 +48428,23 @@ class MeshFactory {
         
         return mesh;
     }
+
+    static createRandomBufferGeometry(count, system_size) {
+        const geometry = new BufferGeometry();
+        const vertices = new Float32Array(count * 3);
+
+        const v3 = new Vector3();
+        for (let i = 0; i < count; i++) {
+            v3.random()
+                .addScalar(-0.5)
+                .setLength(system_size);
+
+            vertices.set(v3.toArray(), i * 3);
+        }
+        geometry.setAttribute('position', new BufferAttribute(vertices, 3));
+        return geometry;
+    }
+
 }
 
 class EntityFactory {
@@ -48466,7 +48474,8 @@ class EntityFactory {
     static createPlanet() {
         const mesh = MeshFactory.createPlanet();
         mesh.add(MeshFactory.createPoints({
-            system_size: 40
+            system_size: 40,
+            point_size: 1
         }));
 
         this.ecs.createEntity({
@@ -48631,11 +48640,11 @@ class EntityFactory {
                 rotation: direction,
             },{
                 type: 'Move',
-                velocity: direction.multiplyScalar(2)
+                velocity: direction.clone().multiplyScalar(2)
             },{
                 type: 'TargetColor',
                 color: new Color(Palette.light),
-                duration: 1
+                duration: 0.8
             },{
                 type: 'DeleteTimer',
                 time_left: 0.8
@@ -48643,7 +48652,11 @@ class EntityFactory {
                 type: 'Collider',
                 against: 'Enemy'
             },{
-                type: 'Trail'
+                type: 'Trail',
+                count_per_s: 40,
+                particle_life: 0.8,
+                system_size: 4,
+                particle_velocity: direction.clone().multiplyScalar(-2)
             }]
         });
     }
@@ -48713,8 +48726,8 @@ class EntityFactory {
         ));
 
         mesh.add(MeshFactory.createPoints({
+            system_size: 200,
             point_size: 3,
-            system_size: 200
         }));
 
         this.ecs.createEntity({
@@ -48946,47 +48959,14 @@ class ParticlesSystem extends src.System {
                 const e = this.world.getEntity(c.entity);
                 if (e == null) return;
                 const trail = this.world.getComponent(c.component);
-                const component = e.getOne('ThreeComponent');
+                const three = e.getOne('ThreeComponent');
 
                 if (trail == null) return;
-                if (component == null) return;
+                if (three == null) return;
 
-                const mesh = component.mesh;
-                const count = trail.max_count;
-                const p = MeshFactory.createPoints({
-                    count,
-                    system_size: 20,
-                    point_size: 24,
-                    texture: CanvasFactory.createTexture({
-                        shape: 'tri'
-                    }),
-                    dynamic: true,
-                });
+                const p = this.createParticleEmitter(three, trail);
 
-                // prepare data
-                const angle = new Float32Array(count);
-                const age = new Float32Array(count);
-                const hidden = new Float32Array(count);
-
-                // insert data in arrays
-                for (let i = 0; i < count; i++) {
-                    angle[i] = Math.random() * Math.PI * 2;
-                    age[i] = 0;
-                    hidden[i] = 1; // hidden by default
-                }
-
-                // set attributes
-                p.geometry.setAttribute('angle',
-                    new BufferAttribute(angle, 1));
-                p.geometry.setAttribute('hidden',
-                    new BufferAttribute(hidden, 1));
-
-                // setup trail object
-                trail.particles = p;
-                trail.age = age;
-                trail.count = count;
                 trail.update();
-
                 this.scene.add(p);
             }
         });
@@ -48997,23 +48977,19 @@ class ParticlesSystem extends src.System {
             const component = e.getOne('ThreeComponent');
 
             if (trail == null) return;
-            if (trail.particles == null) return;
+            if (trail.emitter == null) return;
             if (component == null) return;
 
+            const delta = loop.delta;
             const mesh = component.mesh;
-            const attributes = trail.particles.geometry.attributes;
+            const attributes = trail.emitter.geometry.attributes;
+            const count_per_s = trail.count_per_s;
             const recycle_indices = [];
 
             let i = 0;
             for (; i < trail.max_count; i++) {
                 // update
-                trail.age[i] += loop.delta;
-                attributes.angle.array[i] += 0.03;
-
-                // hide
-                if (trail.age[i] > trail.particle_life) {
-                    attributes.hidden.array[i] = 1;
-                }
+                this.updateParticle(i, delta, trail, attributes);
 
                 // get hidden particles
                 if (attributes.hidden.array[i] == 1) {
@@ -49022,39 +48998,122 @@ class ParticlesSystem extends src.System {
             }
 
             // create
-            let n_creation = trail.n_per_s * loop.delta;
-            if (n_creation < 1) {
-                if (Math.random() < n_creation) n_creation = 1;
-                else n_creation = 0;
-            }
-            n_creation = Math.floor(n_creation);
-
-            n_creation = Math.min(n_creation, recycle_indices.length);
-            for (let r = 0; r < n_creation; r++) {
+            let creation_count = this.computeCreationCount(delta, count_per_s, recycle_indices.length);
+            for (let r = 0; r < creation_count; r++) {
                 i = recycle_indices[r];
-                // set age +visibility + position
-                trail.age[i] = 0;
-                attributes.hidden.array[i] = 0;
-                attributes.position.array[i * 3 + 0] = mesh.position.x;
-                attributes.position.array[i * 3 + 1] = mesh.position.y;
-                attributes.position.array[i * 3 + 2] = mesh.position.z;
+                this.createParticle(i, trail, attributes, 0);
             }
 
             attributes.angle.needsUpdate = true;
             attributes.hidden.needsUpdate = true;
             attributes.position.needsUpdate = true;
+            attributes.size.needsUpdate = true;
+            trail.emitter.position.copy(mesh.position);
             trail.update();
         });
 
         this.destroyQy.execute().forEach(e => {
             const trail = e.getOne('Trail');
-            const mesh = trail.particles;
+            const mesh = trail.emitter;
             mesh.geometry.dispose();
             mesh.material.dispose();
             this.scene.remove(mesh);
             this.threeScene.renderer.renderLists.dispose();
         });
     }
+
+    computeCreationCount(delta, count_per_s, recycle_indices_count) {
+        let creation_count = count_per_s * delta;
+        // if creation_count < 1 => probability to be created
+        if (creation_count < 1) {
+            if (Math.random() < creation_count)
+                creation_count = 1;
+            else
+                creation_count = 0;
+        }
+        creation_count = Math.floor(creation_count);
+        creation_count = Math.min(creation_count, recycle_indices_count);
+        return creation_count;
+    }
+
+    createParticleEmitter(three, trail) {
+        const mesh = three.mesh;
+        const count = trail.max_count;
+        const system_size = trail.system_size;
+        const emitter = MeshFactory.createPoints({
+            count,
+            system_size,
+            position: mesh.position,
+            texture: CanvasFactory.createTexture({
+                shape: 'tri'
+            }),
+            dynamic: true,
+        });
+
+        // prepare data
+        const angle = new Float32Array(count);
+        const hidden = new Float32Array(count);
+        const size = new Float32Array(count);
+        const age = new Float32Array(count);
+        
+        // set geometry attributes
+        emitter.geometry.setAttribute('angle',
+            new BufferAttribute(angle, 1));
+        emitter.geometry.setAttribute('hidden',
+            new BufferAttribute(hidden, 1));
+        emitter.geometry.setAttribute('size',
+            new BufferAttribute(size, 1));
+
+        // setup trail object
+        trail.emitter = emitter;
+        trail.age = age;
+        trail.count = count;
+
+        // insert data in arrays
+        const attributes = emitter.geometry.attributes;
+        for (let i = 0; i < count; i++) {
+            this.createParticle(i, trail, attributes);
+        }
+        return emitter;
+    }
+
+    createParticle(i, trail, attributes, hidden = 1) {
+        trail.age[i] = 0;
+        attributes.hidden.array[i] = hidden;
+        attributes.angle.array[i] = Math.random() * Math.PI * 2;
+        attributes.size.array[i] = trail.particle_size;
+
+        let v3 = new Vector3()
+            .random()
+            .addScalar(-0.5)
+            .setLength(trail.system_size);
+        attributes.position.set(v3.toArray(), i * 3);
+    }
+
+    updateParticle(i, delta, trail, attributes) {
+        trail.age[i] += delta;
+        
+        // hide
+        const t = 1 - trail.age[i] / trail.particle_life;
+        if (t < 0) {
+            attributes.hidden.array[i] = 1;
+            return;
+        }
+
+        // angle
+        attributes.angle.array[i] += 0.03;
+
+        // size
+        attributes.size.array[i] = trail.particle_size * t;
+        
+        // position
+        if(trail.particle_velocity != null) {
+            attributes.position.array[i * 3 + 0] += trail.particle_velocity.x;
+            attributes.position.array[i * 3 + 1] += trail.particle_velocity.y;
+            attributes.position.array[i * 3 + 2] += trail.particle_velocity.z;
+        }
+    }
+
 }
 
 class MiniConsole {

@@ -1,6 +1,4 @@
 import { Component } from "ape-ecs";
-import { MathUtils } from "three";
-
 export class ParticlesEmitter extends Component {
   static properties = {
     particles:20
@@ -9,9 +7,12 @@ export class ParticlesEmitter extends Component {
 
 export class Trail extends Component {
   static properties = {
-      particles: null,
-      n_per_s: 30,
-      particle_life: 0.3,
-      max_count: 200
+    emitter: null,
+    count_per_s: 40,
+    particle_life: 1,
+    particle_size: 4,
+    max_count: 40,
+    system_size: 20,
+    particle_velocity: null
   }
 }

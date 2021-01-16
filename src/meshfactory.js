@@ -90,13 +90,13 @@ export default class MeshFactory {
     }
 
     static createPoints(config = {}) {
-        const color = config.color || Palette.light;
         const position = config.position || new Vector3();
         const count = config.count || 100;
-        const point_size = config.point_size || 1;
+        const point_size = config.point_size || 0;
         const system_size = config.system_size || 5;    
         const texture = config.texture || CanvasFactory.createTexture();
         const dynamic = config.dynamic || false;
+        const geometry = config.geometry || MeshFactory.createRandomBufferGeometry(count, system_size);
 
         const material = new ShaderMaterial({
             uniforms: {
@@ -105,23 +105,11 @@ export default class MeshFactory {
             },
             vertexShader: particles_vx,
             fragmentShader: particles_fg,
-            alphaTest: 0.5, 
+            // alphaTest: 0.5, 
             transparent: true,
             blending: NormalBlending,
+            depthTest: true
         })
-
-        const geometry = new BufferGeometry();
-        const vertices = new Float32Array(count * 3);
-
-        const v3 = new Vector3()
-        for(let i=0; i<count; i++) {
-            v3.random()
-              .addScalar(-0.5)
-              .setLength(system_size);
-            
-            vertices.set(v3.toArray(), i*3);
-        }
-        geometry.setAttribute('position', new BufferAttribute(vertices, 3));
         
         // Three.ParticlesSystem
         const mesh = new Points(geometry, material);
@@ -153,4 +141,21 @@ export default class MeshFactory {
         
         return mesh;
     }
+
+    static createRandomBufferGeometry(count, system_size) {
+        const geometry = new BufferGeometry();
+        const vertices = new Float32Array(count * 3);
+
+        const v3 = new Vector3();
+        for (let i = 0; i < count; i++) {
+            v3.random()
+                .addScalar(-0.5)
+                .setLength(system_size);
+
+            vertices.set(v3.toArray(), i * 3);
+        }
+        geometry.setAttribute('position', new BufferAttribute(vertices, 3));
+        return geometry;
+    }
+
 }
