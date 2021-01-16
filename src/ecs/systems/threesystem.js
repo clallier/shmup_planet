@@ -1,7 +1,5 @@
 import { System } from "ape-ecs";
 import { Vector3 } from "three";
-import CanvasFactory from "../../canvasfactory";
-import MeshFactory from "../../meshfactory";
 
 export default class ThreeSystem extends System {
     init(threeScene) {
@@ -24,9 +22,6 @@ export default class ThreeSystem extends System {
 
         this.targetColorQy = this.createQuery()
             .fromAll('ThreeComponent', 'TargetColor').persist();
-
-        this.trailQy = this.createQuery()
-            .fromAll('ThreeComponent', 'Trail').persist();
     }
 
     update() {
@@ -43,6 +38,7 @@ export default class ThreeSystem extends System {
                     mesh.lookAt(component.rotation);
                 this.scene.add(mesh);
             }
+
             else if (c.op == 'add' && c.type == 'Destroy') {
                 const e = this.world.getEntity(c.entity);
                 if(e == null) return;
@@ -54,7 +50,7 @@ export default class ThreeSystem extends System {
                 mesh.material.dispose();
                 this.scene.remove(mesh);
                 this.threeScene.renderer.renderLists.dispose();
-            } 
+            }
         });
 
         this.updateShaderQy.execute().forEach(e => {
@@ -107,41 +103,6 @@ export default class ThreeSystem extends System {
 
             target.time += loop.delta;
             target.update();
-        })
-
-        this.trailQy.execute().forEach(e => {
-            const trail = e.getOne('Trail');
-            const component = e.getOne('ThreeComponent');
-
-            if(trail == null) return;
-            if(component == null) return;
-
-            const mesh = component.mesh;
-            if(trail.emitter == null) {
-                // create trail particles
-                // TODO : get infos from component (trail or particle)
-                const p = MeshFactory.createPoints({
-                    position: mesh.position,
-                    count: trail.max_particles,
-                    system_size: 20,
-                    point_size : 8,
-                    texture: CanvasFactory.createTexture({
-                        shape: 'tri'
-                    }),
-                    dynamic: true 
-                });
-
-                this.scene.add(p);
-                trail.emitter = p;
-            }
-
-            if(trail.duration <= 0) {
-                // TODO 
-            }
-
-            // update durations
-            trail.duration -= loop.delta;
-            trail.update();
         })
       }
 }

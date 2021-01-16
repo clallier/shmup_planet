@@ -1,10 +1,10 @@
 import {Destroy, DeleteTimer} from './ecs/components/deletetimer';
 import GameLoop from './ecs/components/gameloop';
-import {ThreeComponent, ScreenShake, TargetColor, Trail} from './ecs/components/threecomponent';
+import {ThreeComponent, ScreenShake, TargetColor} from './ecs/components/threecomponent';
 import {MoveAlongRing, Move} from './ecs/components/move';
 import Weapon from './ecs/components/weapon';
 import Collider from './ecs/components/collider';
-import ParticlesEmitter from './ecs/components/particlesemitter';
+import {ParticlesEmitter, Trail} from './ecs/components/particlesemitter';
 
 import TimeSystem from './ecs/systems/timesystem';
 import ThreeSystem from './ecs/systems/threesystem';
@@ -54,7 +54,7 @@ class App {
         this.ecs.registerSystem('frame', TimeSystem);
         this.ecs.registerSystem('frame', ControlSystem);
         this.ecs.registerSystem('frame', WeaponSystem);
-        this.ecs.registerSystem('frame', ParticlesSystem);
+        this.ecs.registerSystem('frame', ParticlesSystem, [this.ts]);
         this.ecs.registerSystem('frame', MoveSystem);
         this.ecs.registerSystem('frame', CollisionSystem);
         this.ecs.registerSystem('frame', ThreeSystem, [this.ts]);

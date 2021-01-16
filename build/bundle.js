@@ -1583,14 +1583,6 @@ class TargetColor extends src.Component {
     }
 }
 
-class Trail extends src.Component {
-    static properties = {
-        emitter: null,
-        max_particles: 100,
-        duration: 1
-    }
-}
-
 // threejs.org/license
 const REVISION = '122';
 const MOUSE = { LEFT: 0, MIDDLE: 1, RIGHT: 2, ROTATE: 0, DOLLY: 1, PAN: 2 };
@@ -47208,6 +47200,15 @@ class ParticlesEmitter extends src.Component {
   }
 }
 
+class Trail extends src.Component {
+  static properties = {
+      particles: null,
+      n_per_s: 30,
+      particle_life: 0.3,
+      max_count: 200
+  }
+}
+
 class TimeSystem extends src.System {
   init() {
     this.timerQy = this.createQuery()
@@ -47246,235 +47247,6 @@ class TimeSystem extends src.System {
   }
 }
 
-class Palette {
-    static debug_color = 0x00ff00;
-
-    static light = 0xffebf3;
-    static grey = 0x805489;
-    static dark = 0x021423;
-
-    static yellow = 0xf7cb01;
-
-    static pink = 0xf700ff;
-    static red = 0xf73201; 
-    static dark_red = 0xc41c01;
-
-    static light_blue = 0x00cbff;
-    static dark_blue = 0x0076ab;
-}
-
-class CanvasFactory {
-    static createTexture(config = {}) {
-        const width = config.width || 32;
-        const height = config.height || 32;
-        const fillStyle = config.fillStyle || `#${Palette.light.toString(16)}`;
-        const shape = config.shape || 'rect';
-
-        const x = width / 2; 
-        const y = height / 2;
-        const radius = width / 2; 
-        
-        const canvas = document.createElement('canvas'); 
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = fillStyle;
-        if(shape == 'circle') {
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        else if (shape == 'rect') {
-            ctx.fillRect(0, 0, width, height);  
-        }
-        else if (shape == 'tri') {
-            CanvasFactory.poly(ctx, x, y, 3, radius);    
-            ctx.fill();    
-        }
-        const texture = new CanvasTexture(canvas);
-        return texture;
-    }
-
-    /*
-    * ctx: the canvas 2D context
-    * x, y: center point
-    * p: number of sides
-    * radius: the poly size
-    * http://scienceprimer.com/drawing-regular-polygons-javascript-canvas
-    */
-    static poly(ctx, x, y, p, radius) {
-        ctx.beginPath();
-        //ctx.moveTo(x +  size * Math.cos(0), y + size * Math.sin(0));
-        ctx.moveTo(x + radius, y);
-        for (let i=1; i<=p; i++) {
-            ctx.lineTo(
-                x + radius * Math.cos(i * 2 * Math.PI / p),
-                y + radius * Math.sin(i * 2 * Math.PI / p)
-            );
-        }
-        ctx.closePath();
-    }
-}
-
-var displacement_fg = "precision mediump float;varying vec2 vUv;varying float noise;void main(){vec4 color1=vec4(0.9,0.50,0.1,1.);vec4 color2=vec4(0.9,0.9,0.5,1.);gl_FragColor=mix(color2,color1,noise);}";
-
-var displacement_vx = "vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}vec4 mod289(vec4 x){return x-floor(x*(1./289.))*289.;}vec4 permute(vec4 x){return mod289(((x*34.)+1.)*x);}vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-.85373472095314*r;}vec3 fade(vec3 t){return t*t*t*(t*(t*6.-15.)+10.);}float pnoise(vec3 P,vec3 rep){vec3 Pi0=mod(floor(P),rep);vec3 Pi1=mod(Pi0+vec3(1.),rep);Pi0=mod289(Pi0);Pi1=mod289(Pi1);vec3 Pf0=fract(P);vec3 Pf1=Pf0-vec3(1.);vec4 ix=vec4(Pi0.x,Pi1.x,Pi0.x,Pi1.x);vec4 iy=vec4(Pi0.yy,Pi1.yy);vec4 iz0=Pi0.zzzz;vec4 iz1=Pi1.zzzz;vec4 ixy=permute(permute(ix)+iy);vec4 ixy0=permute(ixy+iz0);vec4 ixy1=permute(ixy+iz1);vec4 gx0=ixy0*(1./7.);vec4 gy0=fract(floor(gx0)*(1./7.))-.5;gx0=fract(gx0);vec4 gz0=vec4(.5)-abs(gx0)-abs(gy0);vec4 sz0=step(gz0,vec4(0.));gx0-=sz0*(step(0.,gx0)-.5);gy0-=sz0*(step(0.,gy0)-.5);vec4 gx1=ixy1*(1./7.);vec4 gy1=fract(floor(gx1)*(1./7.))-.5;gx1=fract(gx1);vec4 gz1=vec4(.5)-abs(gx1)-abs(gy1);vec4 sz1=step(gz1,vec4(0.));gx1-=sz1*(step(0.,gx1)-.5);gy1-=sz1*(step(0.,gy1)-.5);vec3 g000=vec3(gx0.x,gy0.x,gz0.x);vec3 g100=vec3(gx0.y,gy0.y,gz0.y);vec3 g010=vec3(gx0.z,gy0.z,gz0.z);vec3 g110=vec3(gx0.w,gy0.w,gz0.w);vec3 g001=vec3(gx1.x,gy1.x,gz1.x);vec3 g101=vec3(gx1.y,gy1.y,gz1.y);vec3 g011=vec3(gx1.z,gy1.z,gz1.z);vec3 g111=vec3(gx1.w,gy1.w,gz1.w);vec4 norm0=taylorInvSqrt(vec4(dot(g000,g000),dot(g010,g010),dot(g100,g100),dot(g110,g110)));g000*=norm0.x;g010*=norm0.y;g100*=norm0.z;g110*=norm0.w;vec4 norm1=taylorInvSqrt(vec4(dot(g001,g001),dot(g011,g011),dot(g101,g101),dot(g111,g111)));g001*=norm1.x;g011*=norm1.y;g101*=norm1.z;g111*=norm1.w;float n000=dot(g000,Pf0);float n100=dot(g100,vec3(Pf1.x,Pf0.yz));float n010=dot(g010,vec3(Pf0.x,Pf1.y,Pf0.z));float n110=dot(g110,vec3(Pf1.xy,Pf0.z));float n001=dot(g001,vec3(Pf0.xy,Pf1.z));float n101=dot(g101,vec3(Pf1.x,Pf0.y,Pf1.z));float n011=dot(g011,vec3(Pf0.x,Pf1.yz));float n111=dot(g111,Pf1);vec3 fade_xyz=fade(Pf0);vec4 n_z=mix(vec4(n000,n100,n010,n110),vec4(n001,n101,n011,n111),fade_xyz.z);vec2 n_yz=mix(n_z.xy,n_z.zw,fade_xyz.y);float n_xyz=mix(n_yz.x,n_yz.y,fade_xyz.x);return 2.2*n_xyz;}/*Permet de stocker UV(qui specifie quel texel lire dans une texture en x,y-normalisés entre 0 et 1)varying : permet de le passer ensuite au fragment shader*/varying vec2 vUv;varying float noise;uniform float time;float turbulence(vec3 p){float w=100.0;float t=-.5;for(float f=1.0;f<=10.0;f++){float power=pow(2.0,f);t+=abs(pnoise(vec3(power*p),vec3(10.0))/power);}return t;}void main(){vUv=uv;float hi_freq=5.0*pnoise(1.*position+vec3(time),vec3(100.));float low_freq=5.0*pnoise(0.1*position+vec3(time),vec3(100.));float size=sin(time*60.0);float wave_x=2.*cos(300.0*uv.x+time*67.0);float wave_y=2.*sin(16.0*uv.y+time*31.0);vec3 p=position+normal*low_freq;noise=low_freq;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}";
-
-var particles_fg = "precision mediump float;varying vec3 v_color;varying float v_angle;uniform sampler2D u_texture;void main(){float c=cos(v_angle);float s=sin(v_angle);vec2 p=gl_PointCoord-.5;vec2 rotated_uv=vec2((c*p.x+s*p.y)+.5,(c*p.y-s*p.x)+.5);vec4 tex_color=texture2D(u_texture,rotated_uv);vec4 base_color=vec4(v_color.xyz,tex_color.w);gl_FragColor=tex_color*base_color;}";
-
-var particles_vx = "varying vec3 v_color;varying float v_angle;uniform float u_size;attribute float angle;void main(){v_color=vec3(1.,1.,1.);v_angle=angle;vec4 pos=modelViewMatrix*vec4(position,1.);gl_PointSize=u_size+(300.0/length(pos));gl_Position=projectionMatrix*pos;}";
-
-class MeshFactory {
-    static createPlanet() {
-        const geometry = new IcosahedronGeometry(20, 6);
-        const material = new ShaderMaterial({
-            uniforms: {
-                // float initialized to 0
-                time: { type: "f", value: 0.0 },
-            },
-            vertexShader: displacement_vx,
-            fragmentShader: displacement_fg
-        });
-        // create a sphere and assign the material
-        const mesh = new Mesh(
-            geometry,
-            material
-        );
-
-        return mesh;
-    }
-
-    static createRing(outerRadius = 1.0,
-        width = 1.0,
-        color = Palette.light,
-        position = new Vector3()) {
-        const geometry = new RingGeometry(
-            outerRadius - width,
-            outerRadius,
-            60, // segments largeur
-            1); // segments profondeur
-        const material = new MeshBasicMaterial({
-            color: color
-        });
-        const mesh = new Mesh(geometry, material);
-        mesh.position.copy(position);
-        mesh.rotation.x = -Math.PI / 2;
-
-        return mesh;
-    }
-
-    static createTetra(
-        radius = 1.0,
-        detail = 0,
-        color = Palette.pink,
-        position = new Vector3()) {
-        const geometry = new TetrahedronGeometry(
-            radius,
-            detail); // detail
-
-        const material = new MeshBasicMaterial({
-            color: color
-        });
-        const mesh = new Mesh(geometry, material);
-        mesh.position.copy(position);
-
-        return mesh;
-    }
-
-    static createBox(
-        width = 1.0,
-        height = 1.0,
-        depth = 1.0,
-        color = Palette.light_blue,
-        position = new Vector3()) {
-        const geometry = new BoxGeometry(width, height, depth);
-        const material = new MeshBasicMaterial({
-            color: color
-        });
-        const mesh = new Mesh(geometry, material);
-        mesh.position.copy(position);
-
-        return mesh;
-    }
-
-    static createPoints(config = {}) {
-        const color = config.color || Palette.light;
-        const position = config.position || new Vector3();
-        const count = config.count || 100;
-        const point_size = config.point_size || 1;
-        const system_size = config.system_size || 5;    
-        const texture = config.texture || CanvasFactory.createTexture();
-        const dynamic = config.dynamic || false;
-
-        const material = new ShaderMaterial({
-            uniforms: {
-                u_texture: {type: "t", value: texture},
-                u_size: {type: "f", value: point_size}
-            },
-            vertexShader: particles_vx,
-            fragmentShader: particles_fg,
-            alphaTest: 0.5, 
-            transparent: true,
-            blending: NormalBlending,
-        });
-
-        // const material = new PointsMaterial({
-        //     color,
-        //     size: point_size,
-        //     map: texture,
-        //     alphaTest: 0.5, 
-        //     transparent: true
-        // });
-
-        const geometry = new BufferGeometry();
-        const vertices = new Float32Array(count * 3);
-        const angles = new Float32Array(count);
-
-        const v3 = new Vector3();
-        for(let i=0; i<count; i++) {
-            v3.random()
-              .addScalar(-0.5)
-              .setLength(system_size);
-            
-            vertices.set(v3.toArray(), i*3);
-            angles[i] = Math.random() * Math.PI * 2;
-        }
-        geometry.setAttribute('position', new BufferAttribute(vertices, 3));
-        geometry.setAttribute('angle', new BufferAttribute(angles, 1));
-
-        
-        // Three.ParticlesSystem
-        const mesh = new Points(geometry, material);
-        mesh.position.copy(position);
-        mesh.dynamic = dynamic;
-        mesh.sortParticles = dynamic;
-        return mesh;
-    }
-
-    static createCylinder(config = {}) {
-        const radiusTop = config.radiusTop || 4;
-        const radiusBottom = config.radiusBottom || 4;
-        const height = config.height || 4;
-        const radialSegments = config.radialSegments || 4;
-        const color = config.color || Palette.debug_color;
-        const position = config.position || new Vector3();
-      
-        var geometry = new CylinderBufferGeometry(
-            radiusTop,
-            radiusBottom,
-            height,
-            radialSegments);
-
-        const material = new MeshBasicMaterial({
-            color
-        });
-        const mesh = new Mesh(geometry, material);
-        mesh.position.copy(position);
-        
-        return mesh;
-    }
-}
-
 class ThreeSystem extends src.System {
     init(threeScene) {
         this.threeScene = threeScene;
@@ -47496,9 +47268,6 @@ class ThreeSystem extends src.System {
 
         this.targetColorQy = this.createQuery()
             .fromAll('ThreeComponent', 'TargetColor').persist();
-
-        this.trailQy = this.createQuery()
-            .fromAll('ThreeComponent', 'Trail').persist();
     }
 
     update() {
@@ -47515,6 +47284,7 @@ class ThreeSystem extends src.System {
                     mesh.lookAt(component.rotation);
                 this.scene.add(mesh);
             }
+
             else if (c.op == 'add' && c.type == 'Destroy') {
                 const e = this.world.getEntity(c.entity);
                 if(e == null) return;
@@ -47526,7 +47296,7 @@ class ThreeSystem extends src.System {
                 mesh.material.dispose();
                 this.scene.remove(mesh);
                 this.threeScene.renderer.renderLists.dispose();
-            } 
+            }
         });
 
         this.updateShaderQy.execute().forEach(e => {
@@ -47579,39 +47349,6 @@ class ThreeSystem extends src.System {
 
             target.time += loop.delta;
             target.update();
-        });
-
-        this.trailQy.execute().forEach(e => {
-            const trail = e.getOne('Trail');
-            const component = e.getOne('ThreeComponent');
-
-            if(trail == null) return;
-            if(component == null) return;
-
-            const mesh = component.mesh;
-            if(trail.emitter == null) {
-                // create trail particles
-                // TODO : get infos from component (trail or particle)
-                const p = MeshFactory.createPoints({
-                    position: mesh.position,
-                    count: trail.max_particles,
-                    system_size: 20,
-                    point_size : 8,
-                    texture: CanvasFactory.createTexture({
-                        shape: 'tri'
-                    }),
-                    dynamic: true 
-                });
-
-                this.scene.add(p);
-                trail.emitter = p;
-            }
-
-            if(trail.duration <= 0) ;
-
-            // update durations
-            trail.duration -= loop.delta;
-            trail.update();
         });
       }
 }
@@ -48485,6 +48222,223 @@ var BufferGeometryUtils = {
 
 };
 
+class Palette {
+    static debug_color = 0x00ff00;
+
+    static light = 0xffebf3;
+    static grey = 0x805489;
+    static dark = 0x021423;
+
+    static yellow = 0xf7cb01;
+
+    static pink = 0xf700ff;
+    static red = 0xf73201; 
+    static dark_red = 0xc41c01;
+
+    static light_blue = 0x00cbff;
+    static dark_blue = 0x0076ab;
+}
+
+class CanvasFactory {
+    static createTexture(config = {}) {
+        const width = config.width || 32;
+        const height = config.height || 32;
+        const fillStyle = config.fillStyle || `#${Palette.light.toString(16)}`;
+        const shape = config.shape || 'rect';
+
+        const x = width / 2; 
+        const y = height / 2;
+        const radius = width / 2; 
+        
+        const canvas = document.createElement('canvas'); 
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = fillStyle;
+        if(shape == 'circle') {
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        else if (shape == 'rect') {
+            ctx.fillRect(0, 0, width, height);  
+        }
+        else if (shape == 'tri') {
+            CanvasFactory.poly(ctx, x, y, 3, radius);    
+            ctx.fill();    
+        }
+        const texture = new CanvasTexture(canvas);
+        return texture;
+    }
+
+    /*
+    * ctx: the canvas 2D context
+    * x, y: center point
+    * p: number of sides
+    * radius: the poly size
+    * http://scienceprimer.com/drawing-regular-polygons-javascript-canvas
+    */
+    static poly(ctx, x, y, p, radius) {
+        ctx.beginPath();
+        //ctx.moveTo(x +  size * Math.cos(0), y + size * Math.sin(0));
+        ctx.moveTo(x + radius, y);
+        for (let i=1; i<=p; i++) {
+            ctx.lineTo(
+                x + radius * Math.cos(i * 2 * Math.PI / p),
+                y + radius * Math.sin(i * 2 * Math.PI / p)
+            );
+        }
+        ctx.closePath();
+    }
+}
+
+var displacement_fg = "precision mediump float;varying vec2 vUv;varying float noise;void main(){vec4 color1=vec4(0.9,0.50,0.1,1.);vec4 color2=vec4(0.9,0.9,0.5,1.);gl_FragColor=mix(color2,color1,noise);}";
+
+var displacement_vx = "vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}vec4 mod289(vec4 x){return x-floor(x*(1./289.))*289.;}vec4 permute(vec4 x){return mod289(((x*34.)+1.)*x);}vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-.85373472095314*r;}vec3 fade(vec3 t){return t*t*t*(t*(t*6.-15.)+10.);}float pnoise(vec3 P,vec3 rep){vec3 Pi0=mod(floor(P),rep);vec3 Pi1=mod(Pi0+vec3(1.),rep);Pi0=mod289(Pi0);Pi1=mod289(Pi1);vec3 Pf0=fract(P);vec3 Pf1=Pf0-vec3(1.);vec4 ix=vec4(Pi0.x,Pi1.x,Pi0.x,Pi1.x);vec4 iy=vec4(Pi0.yy,Pi1.yy);vec4 iz0=Pi0.zzzz;vec4 iz1=Pi1.zzzz;vec4 ixy=permute(permute(ix)+iy);vec4 ixy0=permute(ixy+iz0);vec4 ixy1=permute(ixy+iz1);vec4 gx0=ixy0*(1./7.);vec4 gy0=fract(floor(gx0)*(1./7.))-.5;gx0=fract(gx0);vec4 gz0=vec4(.5)-abs(gx0)-abs(gy0);vec4 sz0=step(gz0,vec4(0.));gx0-=sz0*(step(0.,gx0)-.5);gy0-=sz0*(step(0.,gy0)-.5);vec4 gx1=ixy1*(1./7.);vec4 gy1=fract(floor(gx1)*(1./7.))-.5;gx1=fract(gx1);vec4 gz1=vec4(.5)-abs(gx1)-abs(gy1);vec4 sz1=step(gz1,vec4(0.));gx1-=sz1*(step(0.,gx1)-.5);gy1-=sz1*(step(0.,gy1)-.5);vec3 g000=vec3(gx0.x,gy0.x,gz0.x);vec3 g100=vec3(gx0.y,gy0.y,gz0.y);vec3 g010=vec3(gx0.z,gy0.z,gz0.z);vec3 g110=vec3(gx0.w,gy0.w,gz0.w);vec3 g001=vec3(gx1.x,gy1.x,gz1.x);vec3 g101=vec3(gx1.y,gy1.y,gz1.y);vec3 g011=vec3(gx1.z,gy1.z,gz1.z);vec3 g111=vec3(gx1.w,gy1.w,gz1.w);vec4 norm0=taylorInvSqrt(vec4(dot(g000,g000),dot(g010,g010),dot(g100,g100),dot(g110,g110)));g000*=norm0.x;g010*=norm0.y;g100*=norm0.z;g110*=norm0.w;vec4 norm1=taylorInvSqrt(vec4(dot(g001,g001),dot(g011,g011),dot(g101,g101),dot(g111,g111)));g001*=norm1.x;g011*=norm1.y;g101*=norm1.z;g111*=norm1.w;float n000=dot(g000,Pf0);float n100=dot(g100,vec3(Pf1.x,Pf0.yz));float n010=dot(g010,vec3(Pf0.x,Pf1.y,Pf0.z));float n110=dot(g110,vec3(Pf1.xy,Pf0.z));float n001=dot(g001,vec3(Pf0.xy,Pf1.z));float n101=dot(g101,vec3(Pf1.x,Pf0.y,Pf1.z));float n011=dot(g011,vec3(Pf0.x,Pf1.yz));float n111=dot(g111,Pf1);vec3 fade_xyz=fade(Pf0);vec4 n_z=mix(vec4(n000,n100,n010,n110),vec4(n001,n101,n011,n111),fade_xyz.z);vec2 n_yz=mix(n_z.xy,n_z.zw,fade_xyz.y);float n_xyz=mix(n_yz.x,n_yz.y,fade_xyz.x);return 2.2*n_xyz;}/*Permet de stocker UV(qui specifie quel texel lire dans une texture en x,y-normalisés entre 0 et 1)varying : permet de le passer ensuite au fragment shader*/varying vec2 vUv;varying float noise;uniform float time;float turbulence(vec3 p){float w=100.0;float t=-.5;for(float f=1.0;f<=10.0;f++){float power=pow(2.0,f);t+=abs(pnoise(vec3(power*p),vec3(10.0))/power);}return t;}void main(){vUv=uv;float hi_freq=5.0*pnoise(1.*position+vec3(time),vec3(100.));float low_freq=5.0*pnoise(0.1*position+vec3(time),vec3(100.));float size=sin(time*60.0);float wave_x=2.*cos(300.0*uv.x+time*67.0);float wave_y=2.*sin(16.0*uv.y+time*31.0);vec3 p=position+normal*low_freq;noise=low_freq;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}";
+
+var particles_fg = "precision mediump float;varying vec4 v_color;varying float v_angle;uniform sampler2D u_texture;void main(){float c=cos(v_angle);float s=sin(v_angle);vec2 p=gl_PointCoord-.5;vec2 rotated_uv=vec2((c*p.x+s*p.y)+.5,(c*p.y-s*p.x)+.5);vec4 tex_color=texture2D(u_texture,rotated_uv);gl_FragColor=tex_color*v_color;}";
+
+var particles_vx = "attribute float angle;attribute float hidden;varying vec4 v_color;varying float v_angle;uniform float u_size;void main(){v_color=(hidden<0.5)? vec4(1.): vec4(0.);v_angle=angle;vec4 pos=modelViewMatrix*vec4(position,1.);gl_PointSize=u_size+(300.0/length(pos));gl_Position=projectionMatrix*pos;}";
+
+class MeshFactory {
+    static createPlanet() {
+        const geometry = new IcosahedronGeometry(20, 6);
+        const material = new ShaderMaterial({
+            uniforms: {
+                // float initialized to 0
+                time: { type: "f", value: 0.0 },
+            },
+            vertexShader: displacement_vx,
+            fragmentShader: displacement_fg
+        });
+        // create a sphere and assign the material
+        const mesh = new Mesh(
+            geometry,
+            material
+        );
+
+        return mesh;
+    }
+
+    static createRing(outerRadius = 1.0,
+        width = 1.0,
+        color = Palette.light,
+        position = new Vector3()) {
+        const geometry = new RingGeometry(
+            outerRadius - width,
+            outerRadius,
+            60, // segments largeur
+            1); // segments profondeur
+        const material = new MeshBasicMaterial({
+            color: color
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+        mesh.rotation.x = -Math.PI / 2;
+
+        return mesh;
+    }
+
+    static createTetra(
+        radius = 1.0,
+        detail = 0,
+        color = Palette.pink,
+        position = new Vector3()) {
+        const geometry = new TetrahedronGeometry(
+            radius,
+            detail); // detail
+
+        const material = new MeshBasicMaterial({
+            color: color
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+
+        return mesh;
+    }
+
+    static createBox(
+        width = 1.0,
+        height = 1.0,
+        depth = 1.0,
+        color = Palette.light_blue,
+        position = new Vector3()) {
+        const geometry = new BoxGeometry(width, height, depth);
+        const material = new MeshBasicMaterial({
+            color: color
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+
+        return mesh;
+    }
+
+    static createPoints(config = {}) {
+        const color = config.color || Palette.light;
+        const position = config.position || new Vector3();
+        const count = config.count || 100;
+        const point_size = config.point_size || 1;
+        const system_size = config.system_size || 5;    
+        const texture = config.texture || CanvasFactory.createTexture();
+        const dynamic = config.dynamic || false;
+
+        const material = new ShaderMaterial({
+            uniforms: {
+                u_texture: {type: "t", value: texture},
+                u_size: {type: "f", value: point_size}
+            },
+            vertexShader: particles_vx,
+            fragmentShader: particles_fg,
+            alphaTest: 0.5, 
+            transparent: true,
+            blending: NormalBlending,
+        });
+
+        const geometry = new BufferGeometry();
+        const vertices = new Float32Array(count * 3);
+
+        const v3 = new Vector3();
+        for(let i=0; i<count; i++) {
+            v3.random()
+              .addScalar(-0.5)
+              .setLength(system_size);
+            
+            vertices.set(v3.toArray(), i*3);
+        }
+        geometry.setAttribute('position', new BufferAttribute(vertices, 3));
+        
+        // Three.ParticlesSystem
+        const mesh = new Points(geometry, material);
+        mesh.position.copy(position);
+        mesh.dynamic = dynamic;
+        mesh.sortParticles = dynamic;
+        return mesh;
+    }
+
+    static createCylinder(config = {}) {
+        const radiusTop = config.radiusTop || 4;
+        const radiusBottom = config.radiusBottom || 4;
+        const height = config.height || 4;
+        const radialSegments = config.radialSegments || 4;
+        const color = config.color || Palette.debug_color;
+        const position = config.position || new Vector3();
+      
+        var geometry = new CylinderBufferGeometry(
+            radiusTop,
+            radiusBottom,
+            height,
+            radialSegments);
+
+        const material = new MeshBasicMaterial({
+            color
+        });
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+        
+        return mesh;
+    }
+}
+
 class EntityFactory {
     static init(ecs) {
         this.ecs = ecs;
@@ -48657,8 +48611,6 @@ class EntityFactory {
                 next_attack: 0.5,
                 is_active: true,
                 infinite_ammo: true
-            }, {
-                type: 'Trail'
             }]
         });
     }
@@ -48690,6 +48642,8 @@ class EntityFactory {
             },{
                 type: 'Collider',
                 against: 'Enemy'
+            },{
+                type: 'Trail'
             }]
         });
     }
@@ -48936,13 +48890,24 @@ class CollisionSystem extends src.System {
 }
 
 class ParticlesSystem extends src.System {
-    init() {
+    init(threeScene) {
+        this.threeScene = threeScene;
+        this.scene = this.threeScene.scene;
         this.subscribe('ParticlesEmitter');
+        this.subscribe('Trail');
+
+        this.trailQy = this.createQuery()
+            .fromAll('ThreeComponent', 'Trail').persist();
+
+        this.destroyQy = this.createQuery()
+            .fromAll('Trail', 'Destroy').persist();
     }
 
     update() {
+        const loop = this.world.getEntity('game').getOne('GameLoop');
+
         this.changes.forEach(c => {
-            if (c.op == 'add') {
+            if (c.op == 'add' && c.type == 'ParticlesEmitter') {
                 const entity = this.world.getEntity(c.entity);
                 const emitter = this.world.getComponent(c.component);
                 const three = entity.getOne('ThreeComponent');
@@ -48954,8 +48919,8 @@ class ParticlesSystem extends src.System {
                 const mesh = three.mesh;
                 for (let i = 0; i < emitter.particles; i++) {
                     const tilt = Math.random() * 0.1;
-                    const decay = Math.random() * 0.1 + 0.9; 
-                    const ttl = Math.random() + 1.5; 
+                    const decay = Math.random() * 0.1 + 0.9;
+                    const ttl = Math.random() + 1.5;
                     // angle on ground plane
                     const velocity = 3.5;
                     const xz_angle = Math.random() * 2 * Math.PI;
@@ -48977,6 +48942,117 @@ class ParticlesSystem extends src.System {
                     });
                 }
             }
+            else if (c.op == 'add' && c.type == 'Trail') {
+                const e = this.world.getEntity(c.entity);
+                if (e == null) return;
+                const trail = this.world.getComponent(c.component);
+                const component = e.getOne('ThreeComponent');
+
+                if (trail == null) return;
+                if (component == null) return;
+
+                const mesh = component.mesh;
+                const count = trail.max_count;
+                const p = MeshFactory.createPoints({
+                    count,
+                    system_size: 20,
+                    point_size: 24,
+                    texture: CanvasFactory.createTexture({
+                        shape: 'tri'
+                    }),
+                    dynamic: true,
+                });
+
+                // prepare data
+                const angle = new Float32Array(count);
+                const age = new Float32Array(count);
+                const hidden = new Float32Array(count);
+
+                // insert data in arrays
+                for (let i = 0; i < count; i++) {
+                    angle[i] = Math.random() * Math.PI * 2;
+                    age[i] = 0;
+                    hidden[i] = 1; // hidden by default
+                }
+
+                // set attributes
+                p.geometry.setAttribute('angle',
+                    new BufferAttribute(angle, 1));
+                p.geometry.setAttribute('hidden',
+                    new BufferAttribute(hidden, 1));
+
+                // setup trail object
+                trail.particles = p;
+                trail.age = age;
+                trail.count = count;
+                trail.update();
+
+                this.scene.add(p);
+            }
+        });
+
+        // trail update
+        this.trailQy.execute().forEach(e => {
+            const trail = e.getOne('Trail');
+            const component = e.getOne('ThreeComponent');
+
+            if (trail == null) return;
+            if (trail.particles == null) return;
+            if (component == null) return;
+
+            const mesh = component.mesh;
+            const attributes = trail.particles.geometry.attributes;
+            const recycle_indices = [];
+
+            let i = 0;
+            for (; i < trail.max_count; i++) {
+                // update
+                trail.age[i] += loop.delta;
+                attributes.angle.array[i] += 0.03;
+
+                // hide
+                if (trail.age[i] > trail.particle_life) {
+                    attributes.hidden.array[i] = 1;
+                }
+
+                // get hidden particles
+                if (attributes.hidden.array[i] == 1) {
+                    recycle_indices.push(i);
+                }
+            }
+
+            // create
+            let n_creation = trail.n_per_s * loop.delta;
+            if (n_creation < 1) {
+                if (Math.random() < n_creation) n_creation = 1;
+                else n_creation = 0;
+            }
+            n_creation = Math.floor(n_creation);
+
+            n_creation = Math.min(n_creation, recycle_indices.length);
+            for (let r = 0; r < n_creation; r++) {
+                i = recycle_indices[r];
+                // set age +visibility + position
+                trail.age[i] = 0;
+                attributes.hidden.array[i] = 0;
+                attributes.position.array[i * 3 + 0] = mesh.position.x;
+                attributes.position.array[i * 3 + 1] = mesh.position.y;
+                attributes.position.array[i * 3 + 2] = mesh.position.z;
+            }
+
+            attributes.angle.needsUpdate = true;
+            attributes.hidden.needsUpdate = true;
+            attributes.position.needsUpdate = true;
+            trail.update();
+        });
+
+        this.destroyQy.execute().forEach(e => {
+            const trail = e.getOne('Trail');
+            const mesh = trail.particles;
+            mesh.geometry.dispose();
+            mesh.material.dispose();
+            this.scene.remove(mesh);
+            this.threeScene.renderer.renderLists.dispose();
         });
     }
 }
@@ -51571,7 +51647,7 @@ class App {
         this.ecs.registerSystem('frame', TimeSystem);
         this.ecs.registerSystem('frame', ControlSystem);
         this.ecs.registerSystem('frame', WeaponSystem);
-        this.ecs.registerSystem('frame', ParticlesSystem);
+        this.ecs.registerSystem('frame', ParticlesSystem, [this.ts]);
         this.ecs.registerSystem('frame', MoveSystem);
         this.ecs.registerSystem('frame', CollisionSystem);
         this.ecs.registerSystem('frame', ThreeSystem, [this.ts]);

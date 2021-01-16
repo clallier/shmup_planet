@@ -110,17 +110,8 @@ export default class MeshFactory {
             blending: NormalBlending,
         })
 
-        // const material = new PointsMaterial({
-        //     color,
-        //     size: point_size,
-        //     map: texture,
-        //     alphaTest: 0.5, 
-        //     transparent: true
-        // });
-
         const geometry = new BufferGeometry();
         const vertices = new Float32Array(count * 3);
-        const angles = new Float32Array(count);
 
         const v3 = new Vector3()
         for(let i=0; i<count; i++) {
@@ -129,11 +120,8 @@ export default class MeshFactory {
               .setLength(system_size);
             
             vertices.set(v3.toArray(), i*3);
-            angles[i] = Math.random() * Math.PI * 2;
         }
         geometry.setAttribute('position', new BufferAttribute(vertices, 3));
-        geometry.setAttribute('angle', new BufferAttribute(angles, 1));
-
         
         // Three.ParticlesSystem
         const mesh = new Points(geometry, material);

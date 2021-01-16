@@ -175,8 +175,6 @@ export default class EntityFactory {
                 next_attack: 0.5,
                 is_active: true,
                 infinite_ammo: true
-            }, {
-                type: 'Trail'
             }]
         });
     }
@@ -208,6 +206,8 @@ export default class EntityFactory {
             },{
                 type: 'Collider',
                 against: 'Enemy'
+            },{
+                type: 'Trail'
             }]
         });
     }
