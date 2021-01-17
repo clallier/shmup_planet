@@ -171,11 +171,7 @@ export default class EntityFactory {
                 angle: Math.PI / 2,
                 decay: 0.96
             }, {
-                type: 'Weapon',
-                attack_timer: 2,
-                next_attack: 0.5,
-                is_active: true,
-                infinite_ammo: true
+                type: 'Weapon'
             }]
         });
     }
@@ -209,10 +205,16 @@ export default class EntityFactory {
                 against: 'Enemy'
             },{
                 type: 'Trail',
-                count_per_s: 40,
-                particle_life: 0.8,
                 system_size: 4,
-                particle_velocity: direction.clone().multiplyScalar(-2)
+                count_per_s: 40,
+                life: 0.8,
+                velocity: direction.clone().multiplyScalar(-2),
+                size_tween: true,
+                size_start: 3,
+                size_end: 0,
+                color_tween: true,
+                color_start: Palette.light,
+                color_end: Palette.dark_red,
             }]
         });
     }

@@ -18,8 +18,15 @@ export default class CanvasFactory {
 
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = fillStyle;
+        ctx.strokeStyle = fillStyle;
+        ctx.lineWidth = 4;
+
         if(shape == 'circle') {
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.arc(x, y, radius-4, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        if(shape == 'dot') {
+            ctx.arc(x, y, radius-2, 0, Math.PI * 2);
             ctx.fill();
         }
         else if (shape == 'rect') {

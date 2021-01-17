@@ -1,11 +1,8 @@
 import {
-    Vector3, Mesh, Geometry, BufferGeometry,
-    IcosahedronGeometry, RingGeometry, TetrahedronGeometry,
-    BoxGeometry,
+    Vector3, Mesh, BufferGeometry,
+    IcosahedronGeometry, RingGeometry, TetrahedronGeometry, BoxGeometry,
     ShaderMaterial, MeshBasicMaterial,
-    PointsMaterial, Points, 
-    CylinderBufferGeometry,
-    NormalBlending,
+    Points, CylinderBufferGeometry,
     BufferAttribute
 } from "three";
 import Palette from './palette'
@@ -105,9 +102,8 @@ export default class MeshFactory {
             },
             vertexShader: particles_vx,
             fragmentShader: particles_fg,
-            // alphaTest: 0.5, 
+            alphaTest: 0.5, 
             transparent: true,
-            blending: NormalBlending,
             depthTest: true
         })
         

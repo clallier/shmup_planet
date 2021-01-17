@@ -1,5 +1,5 @@
 import { System } from "ape-ecs";
-import { BufferAttribute, Vector3 } from "three";
+import { BufferAttribute, Color, Vector3 } from "three";
 import EntityFactory from '../entityfactory';
 import CanvasFactory from "../../canvasfactory";
 import MeshFactory from "../../meshfactory";
@@ -108,8 +108,9 @@ export default class ParticlesSystem extends System {
 
             attributes.angle.needsUpdate = true;
             attributes.hidden.needsUpdate = true;
-            attributes.position.needsUpdate = true;
-            attributes.size.needsUpdate = true;
+            attributes.position.needsUpdate = (trail.velocity != null);
+            attributes.size.needsUpdate = (trail.size_tween == true);
+            attributes.color.needsUpdate = (trail.color_tween == true);
             trail.emitter.position.copy(mesh.position);
             trail.update();
         })
@@ -140,14 +141,16 @@ export default class ParticlesSystem extends System {
 
     createParticleEmitter(three, trail) {
         const mesh = three.mesh;
-        const count = trail.max_count;
         const system_size = trail.system_size;
+        const count = trail.max_count || 
+            trail.count_per_s * trail.life;
+
         const emitter = MeshFactory.createPoints({
             count,
             system_size,
             position: mesh.position,
             texture: CanvasFactory.createTexture({
-                shape: 'tri'
+                shape: 'rect'
             }),
             dynamic: true,
         });
@@ -157,7 +160,8 @@ export default class ParticlesSystem extends System {
         const hidden = new Float32Array(count);
         const size = new Float32Array(count);
         const age = new Float32Array(count);
-        
+        const color = new Float32Array(count * 3);
+
         // set geometry attributes
         emitter.geometry.setAttribute('angle',
             new BufferAttribute(angle, 1));
@@ -165,11 +169,16 @@ export default class ParticlesSystem extends System {
             new BufferAttribute(hidden, 1));
         emitter.geometry.setAttribute('size',
             new BufferAttribute(size, 1));
+        emitter.geometry.setAttribute('color',
+            new BufferAttribute(color, 3));
 
         // setup trail object
         trail.emitter = emitter;
         trail.age = age;
-        trail.count = count;
+        trail.max_count = count;
+        
+        // tmp vars
+        trail.v3 = new Vector3();
 
         // insert data in arrays
         const attributes = emitter.geometry.attributes;
@@ -183,20 +192,29 @@ export default class ParticlesSystem extends System {
         trail.age[i] = 0;
         attributes.hidden.array[i] = hidden;
         attributes.angle.array[i] = Math.random() * Math.PI * 2;
-        attributes.size.array[i] = trail.particle_size;
+        attributes.size.array[i] = trail.size_start;
 
-        let v3 = new Vector3()
-            .random()
+        trail.v3 = trail.v3.random()
             .addScalar(-0.5)
             .setLength(trail.system_size);
-        attributes.position.set(v3.toArray(), i * 3);
+        attributes.position.set(trail.v3.toArray(), i * 3);
+
+        if(Number.isInteger(trail.color_start)) {
+            trail.color_start = new Color(trail.color_start)
+        }
+
+        if(Number.isInteger(trail.color_end)) {
+            trail.color_end = new Color(trail.color_end)
+        }
+
+        attributes.color.set(trail.color_start.toArray(), i * 3);
     }
 
     updateParticle(i, delta, trail, attributes) {
         trail.age[i] += delta;
-        
+        const t = 1 - trail.age[i] / trail.life;
+
         // hide
-        const t = 1 - trail.age[i] / trail.particle_life;
         if (t < 0) {
             attributes.hidden.array[i] = 1;
             return;
@@ -206,13 +224,21 @@ export default class ParticlesSystem extends System {
         attributes.angle.array[i] += 0.03;
 
         // size
-        attributes.size.array[i] = trail.particle_size * t;
-        
+        if (trail.size_tween == true) {
+            attributes.size.array[i] = 
+            trail.size_end + t * (trail.size_start - trail.size_end)
+        }
+        // color
+        if (trail.color_tween == true) {
+            const c = trail.color_end.clone().lerp(trail.color_start, t);
+            attributes.color.array.set(c.toArray(), i * 3); 
+        }
+
         // position
-        if(trail.particle_velocity != null) {
-            attributes.position.array[i * 3 + 0] += trail.particle_velocity.x;
-            attributes.position.array[i * 3 + 1] += trail.particle_velocity.y;
-            attributes.position.array[i * 3 + 2] += trail.particle_velocity.z;
+        if (trail.velocity != null) {
+            attributes.position.array[i * 3 + 0] += trail.velocity.x;
+            attributes.position.array[i * 3 + 1] += trail.velocity.y;
+            attributes.position.array[i * 3 + 2] += trail.velocity.z;
         }
     }
 

@@ -47178,11 +47178,21 @@ class MoveAlongRing extends src.Component {
 class Weapon extends src.Component {
     static properties = {
         ammo_type: 'bullet',
-        infinite_ammo: false,
+        infinite_reload: true,
+        is_active: true,
+        ammo_per_reload: 3,
+        
         ammo_left: 1,
-        attack_timer: 0.5,
-        next_attack: 0.5,
-        is_active: true
+        // timer: the time to wait 
+        ammo_timer: 0.4,
+        // cooldown: should be init to reload_timer
+        ammo_cooldown: 0.4,
+
+        reload_left: 3,
+        // timer: the time to wait 
+        reload_timer: 2,
+        // cooldown: should be init to 0
+        reload_cooldown: 0
     }
 }
 
@@ -47203,12 +47213,25 @@ class ParticlesEmitter extends src.Component {
 class Trail extends src.Component {
   static properties = {
     emitter: null,
-    count_per_s: 40,
-    particle_life: 1,
-    particle_size: 4,
-    max_count: 40,
+    // emitter props
+    max_count: 0,
     system_size: 20,
-    particle_velocity: null
+    count_per_s: 40,
+
+    // particle props
+    life: 1, // in s
+    size_tween: false,
+    size_start: 1,
+    size_end: 0,
+    velocity: null,
+    color_tween: false,
+    color_start: new Vector3(1, 0, 0),
+    color_end: new Vector3(0, 0, 1),
+    // TODO : better name
+    // angle animation
+    // initial velocity
+    // initial visibles
+    // TODO use binary values for needsUpdate
   }
 }
 
@@ -48259,8 +48282,15 @@ class CanvasFactory {
 
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = fillStyle;
+        ctx.strokeStyle = fillStyle;
+        ctx.lineWidth = 4;
+
         if(shape == 'circle') {
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.arc(x, y, radius-4, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        if(shape == 'dot') {
+            ctx.arc(x, y, radius-2, 0, Math.PI * 2);
             ctx.fill();
         }
         else if (shape == 'rect') {
@@ -48301,7 +48331,7 @@ var displacement_vx = "vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}vec
 
 var particles_fg = "precision mediump float;varying vec4 v_color;varying float v_angle;uniform sampler2D u_texture;void main(){float c=cos(v_angle);float s=sin(v_angle);vec2 p=gl_PointCoord-.5;vec2 rotated_uv=vec2((c*p.x+s*p.y)+.5,(c*p.y-s*p.x)+.5);vec4 tex_color=texture2D(u_texture,rotated_uv);gl_FragColor=tex_color*v_color;}";
 
-var particles_vx = "attribute float angle;attribute float hidden;attribute float size;varying vec4 v_color;varying float v_angle;uniform float u_size;void main(){v_color=(hidden<0.5)? vec4(1.): vec4(0.);v_angle=angle;vec4 pos=modelViewMatrix*vec4(position,1.);gl_PointSize=(u_size+size)*(300.0/length(pos));gl_Position=projectionMatrix*pos;}";
+var particles_vx = "attribute float angle;attribute float hidden;attribute float size;attribute vec3 color;varying vec4 v_color;varying float v_angle;uniform float u_size;void main(){v_color=(hidden<.5)? vec4(color,1.): vec4(0.);v_angle=angle;vec4 pos=modelViewMatrix*vec4(position,1.);gl_PointSize=(u_size+size)*(300./length(pos));gl_Position=projectionMatrix*pos;}";
 
 class MeshFactory {
     static createPlanet() {
@@ -48392,9 +48422,8 @@ class MeshFactory {
             },
             vertexShader: particles_vx,
             fragmentShader: particles_fg,
-            // alphaTest: 0.5, 
+            alphaTest: 0.5, 
             transparent: true,
-            blending: NormalBlending,
             depthTest: true
         });
         
@@ -48615,11 +48644,7 @@ class EntityFactory {
                 angle: Math.PI / 2,
                 decay: 0.96
             }, {
-                type: 'Weapon',
-                attack_timer: 2,
-                next_attack: 0.5,
-                is_active: true,
-                infinite_ammo: true
+                type: 'Weapon'
             }]
         });
     }
@@ -48653,10 +48678,16 @@ class EntityFactory {
                 against: 'Enemy'
             },{
                 type: 'Trail',
-                count_per_s: 40,
-                particle_life: 0.8,
                 system_size: 4,
-                particle_velocity: direction.clone().multiplyScalar(-2)
+                count_per_s: 40,
+                life: 0.8,
+                velocity: direction.clone().multiplyScalar(-2),
+                size_tween: true,
+                size_start: 3,
+                size_end: 0,
+                color_tween: true,
+                color_start: Palette.light,
+                color_end: Palette.dark_red,
             }]
         });
     }
@@ -48809,29 +48840,63 @@ class WeaponSystem extends src.System {
 
   update() {
     const loop = this.world.getEntity('game').getOne('GameLoop');
-    
+
     this.query.execute().forEach(e => {
       const weapon = e.getOne('Weapon');
       const component = e.getOne('ThreeComponent');
-      if(weapon == null) return;
-      if(component == null) return;
+      if (weapon == null) return;
+      if (component == null) return;
 
-      const is_active = weapon.is_active && 
-        (weapon.infinite_ammo || weapon.ammo_left > 0); 
+      // can emit bullet?
+      const is_active = weapon.is_active &&
+        (weapon.infinite_reload ||
+          weapon.reload_left >= 0 ||
+          weapon.ammo_left > 0);
+
+      if (is_active == false) return;
+
+      // we have ammo and we are not reloading
+      if (weapon.ammo_left > 0 && weapon.reload_cooldown <= 0) {
+        weapon.ammo_cooldown -= loop.delta;
+      }
+
+      // we have no ammo but we are reloading 
+      if (weapon.ammo_left <= 0 && weapon.reload_cooldown > 0) {
+        weapon.reload_cooldown -= loop.delta;
+      }
       
-      if(is_active == false) return;
-      const mesh = component.mesh;
-      weapon.next_attack -= loop.delta;
+      // we have no ammo and reloading is done
+      if (weapon.ammo_left <= 0 && weapon.reload_cooldown <= 0) {
+        weapon.ammo_left = weapon.ammo_per_reload;
+      }
 
-      if(weapon.next_attack <= 0) {
-        weapon.next_attack = weapon.attack_timer;
-        if(weapon.ammo_left > 0) weapon.ammo_left -= 1;
+      // if the ammo coolown is done
+      if (weapon.ammo_cooldown <= 0 && weapon.reload_cooldown <= 0) {
+        
+        // if we have ammo: update bullet count
+        if (weapon.ammo_left > 0) {
+          weapon.ammo_left -= 1;
+          // reset the ammo cooldown 
+          weapon.ammo_cooldown = weapon.ammo_timer;      
+        }
+
+        // if no ammo left: reload
+        if (weapon.ammo_left <= 0) {
+          weapon.reload_left -= 1;
+          weapon.reload_cooldown = weapon.reload_timer;
+          weapon.ammo_cooldown = 0;
+        }
+
+        if(weapon.reload_left <= 0 && weapon.infinite_reload)
+          weapon.reload_left = 1;
+
         // bullet
+        const mesh = component.mesh;
         const pos = mesh.position;
         const dir = new Vector3();
         mesh.getWorldDirection(dir);
         EntityFactory.createBullet(weapon.ammo_type, pos, dir);
-        e.addComponent({type:'ScreenShake', power: 3, duration: 0.05});
+        e.addComponent({ type: 'ScreenShake', power: 3, duration: 0.05 });
       }
 
       weapon.update();
@@ -49006,8 +49071,9 @@ class ParticlesSystem extends src.System {
 
             attributes.angle.needsUpdate = true;
             attributes.hidden.needsUpdate = true;
-            attributes.position.needsUpdate = true;
-            attributes.size.needsUpdate = true;
+            attributes.position.needsUpdate = (trail.velocity != null);
+            attributes.size.needsUpdate = (trail.size_tween == true);
+            attributes.color.needsUpdate = (trail.color_tween == true);
             trail.emitter.position.copy(mesh.position);
             trail.update();
         });
@@ -49038,14 +49104,16 @@ class ParticlesSystem extends src.System {
 
     createParticleEmitter(three, trail) {
         const mesh = three.mesh;
-        const count = trail.max_count;
         const system_size = trail.system_size;
+        const count = trail.max_count || 
+            trail.count_per_s * trail.life;
+
         const emitter = MeshFactory.createPoints({
             count,
             system_size,
             position: mesh.position,
             texture: CanvasFactory.createTexture({
-                shape: 'tri'
+                shape: 'rect'
             }),
             dynamic: true,
         });
@@ -49055,7 +49123,8 @@ class ParticlesSystem extends src.System {
         const hidden = new Float32Array(count);
         const size = new Float32Array(count);
         const age = new Float32Array(count);
-        
+        const color = new Float32Array(count * 3);
+
         // set geometry attributes
         emitter.geometry.setAttribute('angle',
             new BufferAttribute(angle, 1));
@@ -49063,11 +49132,16 @@ class ParticlesSystem extends src.System {
             new BufferAttribute(hidden, 1));
         emitter.geometry.setAttribute('size',
             new BufferAttribute(size, 1));
+        emitter.geometry.setAttribute('color',
+            new BufferAttribute(color, 3));
 
         // setup trail object
         trail.emitter = emitter;
         trail.age = age;
-        trail.count = count;
+        trail.max_count = count;
+        
+        // tmp vars
+        trail.v3 = new Vector3();
 
         // insert data in arrays
         const attributes = emitter.geometry.attributes;
@@ -49081,20 +49155,29 @@ class ParticlesSystem extends src.System {
         trail.age[i] = 0;
         attributes.hidden.array[i] = hidden;
         attributes.angle.array[i] = Math.random() * Math.PI * 2;
-        attributes.size.array[i] = trail.particle_size;
+        attributes.size.array[i] = trail.size_start;
 
-        let v3 = new Vector3()
-            .random()
+        trail.v3 = trail.v3.random()
             .addScalar(-0.5)
             .setLength(trail.system_size);
-        attributes.position.set(v3.toArray(), i * 3);
+        attributes.position.set(trail.v3.toArray(), i * 3);
+
+        if(Number.isInteger(trail.color_start)) {
+            trail.color_start = new Color(trail.color_start);
+        }
+
+        if(Number.isInteger(trail.color_end)) {
+            trail.color_end = new Color(trail.color_end);
+        }
+
+        attributes.color.set(trail.color_start.toArray(), i * 3);
     }
 
     updateParticle(i, delta, trail, attributes) {
         trail.age[i] += delta;
-        
+        const t = 1 - trail.age[i] / trail.life;
+
         // hide
-        const t = 1 - trail.age[i] / trail.particle_life;
         if (t < 0) {
             attributes.hidden.array[i] = 1;
             return;
@@ -49104,13 +49187,21 @@ class ParticlesSystem extends src.System {
         attributes.angle.array[i] += 0.03;
 
         // size
-        attributes.size.array[i] = trail.particle_size * t;
-        
+        if (trail.size_tween == true) {
+            attributes.size.array[i] = 
+            trail.size_end + t * (trail.size_start - trail.size_end);
+        }
+        // color
+        if (trail.color_tween == true) {
+            const c = trail.color_end.clone().lerp(trail.color_start, t);
+            attributes.color.array.set(c.toArray(), i * 3); 
+        }
+
         // position
-        if(trail.particle_velocity != null) {
-            attributes.position.array[i * 3 + 0] += trail.particle_velocity.x;
-            attributes.position.array[i * 3 + 1] += trail.particle_velocity.y;
-            attributes.position.array[i * 3 + 2] += trail.particle_velocity.z;
+        if (trail.velocity != null) {
+            attributes.position.array[i * 3 + 0] += trail.velocity.x;
+            attributes.position.array[i * 3 + 1] += trail.velocity.y;
+            attributes.position.array[i * 3 + 2] += trail.velocity.z;
         }
     }
 
