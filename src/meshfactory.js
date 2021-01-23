@@ -1,9 +1,9 @@
 import {
-    Vector3, Mesh, BufferGeometry,
+    Vector3, Mesh, Group,
     IcosahedronGeometry, RingGeometry, TetrahedronGeometry, BoxGeometry,
     ShaderMaterial, MeshBasicMaterial,
-    Points, CylinderBufferGeometry,
-    BufferAttribute
+    Points, CylinderGeometry,
+    BufferGeometry, BufferAttribute,
 } from "three";
 import Palette from './palette'
 import CanvasFactory from "./canvasfactory";
@@ -90,23 +90,31 @@ export default class MeshFactory {
         const position = config.position || new Vector3();
         const count = config.count || 100;
         const point_size = config.point_size || 0;
-        const system_size = config.system_size || 5;    
+        const system_size = config.system_size || 5;
         const texture = config.texture || CanvasFactory.createTexture();
         const dynamic = config.dynamic || false;
         const geometry = config.geometry || MeshFactory.createRandomBufferGeometry(count, system_size);
 
         const material = new ShaderMaterial({
             uniforms: {
-                u_texture: {type: "t", value: texture},
-                u_size: {type: "f", value: point_size}
+                u_texture: { type: "t", value: texture },
+                u_size: { type: "f", value: point_size }
             },
             vertexShader: particles_vx,
             fragmentShader: particles_fg,
-            alphaTest: 0.5, 
+            alphaTest: 0.5,
             transparent: true,
             depthTest: true
         })
-        
+
+        // const material = new PointsMaterial({
+        //     color,
+        //     size: point_size,
+        //     map: texture,
+        //     alphaTest: 0.5, 
+        //     transparent: true
+        // });
+
         // Three.ParticlesSystem
         const mesh = new Points(geometry, material);
         mesh.position.copy(position);
@@ -122,8 +130,8 @@ export default class MeshFactory {
         const radialSegments = config.radialSegments || 4;
         const color = config.color || Palette.debug_color;
         const position = config.position || new Vector3();
-      
-        var geometry = new CylinderBufferGeometry(
+
+        var geometry = new CylinderGeometry(
             radiusTop,
             radiusBottom,
             height,
@@ -134,7 +142,7 @@ export default class MeshFactory {
         });
         const mesh = new Mesh(geometry, material);
         mesh.position.copy(position);
-        
+
         return mesh;
     }
 
@@ -154,4 +162,110 @@ export default class MeshFactory {
         return geometry;
     }
 
+    static createSpaceShip(config = {}) {
+        const body_color = config.body_color || Palette.light;
+        const line_color = config.line_color || Palette.dark;
+        const cockpit_color = config.cockpit_color || Palette.light_blue;
+        const reactor_color = config.reactor_color || Palette.dark;
+
+        const position = config.position || new Vector3();
+
+        const group = new Group();
+        const mesh = new Mesh();
+        const body = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 3,
+            height: 3,
+            radialSegments: 4,
+            color: body_color,
+            position: new Vector3(0, -1, 0)
+        });
+        mesh.add(body)
+
+        const cockpit = MeshFactory.createCylinder({
+            radiusTop: 2.5,
+            radiusBottom: 3.4,
+            height: 1,
+            radialSegments: 4,
+            color: cockpit_color,
+            position: new Vector3(0, -1.5, 0)
+        });
+        mesh.add(cockpit);
+
+        const right_arm = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 3,
+            height: 6,
+            radialSegments: 4,
+            color: body_color,
+            position: new Vector3(-4, 0, 0)
+        });
+        mesh.add(right_arm);
+
+        const right_line = MeshFactory.createCylinder({
+            radiusTop: 3,
+            radiusBottom: 3,
+            height: 0.5,
+            radialSegments: 4,
+            color: line_color,
+            position: new Vector3(-4, -1, 0)
+        });
+        mesh.add(right_line);
+
+        const right_reactor = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 1,
+            height: 1,
+            radialSegments: 4,
+            color: reactor_color,
+            position: new Vector3(-4, -3.5, 0)
+        });
+        mesh.add(right_reactor);
+
+        const left_arm = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 3,
+            height: 6,
+            radialSegments: 4,
+            color: body_color,
+            position: new Vector3(4, 0, 0)
+        });
+        mesh.add(left_arm);
+
+        const left_line = MeshFactory.createCylinder({
+            radiusTop: 3,
+            radiusBottom: 3,
+            height: 0.5,
+            radialSegments: 4,
+            color: line_color,
+            position: new Vector3(4, -1, 0)
+        });
+        mesh.add(left_line);
+
+        const left_reactor = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 1,
+            height: 1,
+            radialSegments: 4,
+            color: reactor_color,
+            position: new Vector3(4, -3.5, 0)
+        });
+        mesh.add(left_reactor);
+
+        const center_reactor = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 1,
+            height: 1,
+            radialSegments: 4,
+            color: reactor_color,
+            position: new Vector3(0, -3, 0)
+        });
+        mesh.add(center_reactor);
+
+        // construction
+        mesh.rotateX(Math.PI / 2);
+        group.add(mesh);
+        group.position.copy(position);
+        return group;
+    }
 }

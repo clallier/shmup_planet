@@ -23,6 +23,7 @@ export default class ParticlesSystem extends System {
 
         this.changes.forEach(c => {
             if (c.op == 'add' && c.type == 'ParticlesEmitter') {
+                // TODO remove
                 const entity = this.world.getEntity(c.entity);
                 const emitter = this.world.getComponent(c.component);
                 const three = entity.getOne('ThreeComponent');
@@ -108,7 +109,11 @@ export default class ParticlesSystem extends System {
 
             attributes.angle.needsUpdate = true;
             attributes.hidden.needsUpdate = true;
-            attributes.position.needsUpdate = (trail.velocity != null);
+            
+            // TODO
+            attributes.position.needsUpdate = true;
+            attributes.velocity.needsUpdate = (trail.decay > 0);
+
             attributes.size.needsUpdate = (trail.size_tween == true);
             attributes.color.needsUpdate = (trail.color_tween == true);
             trail.emitter.position.copy(mesh.position);
@@ -142,15 +147,16 @@ export default class ParticlesSystem extends System {
     createParticleEmitter(three, trail) {
         const mesh = three.mesh;
         const system_size = trail.system_size;
-        const count = trail.max_count || 
-            trail.count_per_s * trail.life;
+        const visibles = trail.initial_visibles;
+
+        const count = trail.max_count || visibles + trail.count_per_s * trail.life;
 
         const emitter = MeshFactory.createPoints({
             count,
             system_size,
             position: mesh.position,
             texture: CanvasFactory.createTexture({
-                shape: 'rect'
+                shape: trail.shape
             }),
             dynamic: true,
         });
@@ -161,6 +167,7 @@ export default class ParticlesSystem extends System {
         const size = new Float32Array(count);
         const age = new Float32Array(count);
         const color = new Float32Array(count * 3);
+        const velocity = new Float32Array(count * 3);
 
         // set geometry attributes
         emitter.geometry.setAttribute('angle',
@@ -171,19 +178,27 @@ export default class ParticlesSystem extends System {
             new BufferAttribute(size, 1));
         emitter.geometry.setAttribute('color',
             new BufferAttribute(color, 3));
+        emitter.geometry.setAttribute('velocity',
+            new BufferAttribute(velocity, 3));
 
         // setup trail object
         trail.emitter = emitter;
         trail.age = age;
         trail.max_count = count;
-        
+
+        // convert color
+        if(Number.isInteger(trail.color_start))
+            trail.color_start = new Color(trail.color_start)
+        if(Number.isInteger(trail.color_end))
+            trail.color_end = new Color(trail.color_end)
+
         // tmp vars
         trail.v3 = new Vector3();
 
         // insert data in arrays
         const attributes = emitter.geometry.attributes;
         for (let i = 0; i < count; i++) {
-            this.createParticle(i, trail, attributes);
+            this.createParticle(i, trail, attributes, i>=visibles);
         }
         return emitter;
     }
@@ -192,21 +207,26 @@ export default class ParticlesSystem extends System {
         trail.age[i] = 0;
         attributes.hidden.array[i] = hidden;
         attributes.angle.array[i] = Math.random() * Math.PI * 2;
-        attributes.size.array[i] = trail.size_start;
+        
+        attributes.size.array[i] = Math.random() * trail.size_start + trail.size_start;
 
+
+        // position
         trail.v3 = trail.v3.random()
             .addScalar(-0.5)
             .setLength(trail.system_size);
         attributes.position.set(trail.v3.toArray(), i * 3);
 
-        if(Number.isInteger(trail.color_start)) {
-            trail.color_start = new Color(trail.color_start)
+        // velocity
+        if (trail.behavior == 'trail') {
+            attributes.velocity.set(trail.velocity.toArray(), i * 3)
+        }
+        else if (trail.behavior == 'explosion') {
+            trail.v3.setLength(Math.random() * trail.system_size);
+            attributes.velocity.set(trail.v3.toArray(), i * 3);
         }
 
-        if(Number.isInteger(trail.color_end)) {
-            trail.color_end = new Color(trail.color_end)
-        }
-
+        // color
         attributes.color.set(trail.color_start.toArray(), i * 3);
     }
 
@@ -215,19 +235,22 @@ export default class ParticlesSystem extends System {
         const t = 1 - trail.age[i] / trail.life;
 
         // hide
-        if (t < 0) {
+        if (t < 0)
             attributes.hidden.array[i] = 1;
+
+        // is hidden ? 
+        if(attributes.hidden.array[i] == 1)
             return;
-        }
 
         // angle
-        attributes.angle.array[i] += 0.03;
+        attributes.angle.array[i] += .05;
 
         // size
         if (trail.size_tween == true) {
             attributes.size.array[i] = 
             trail.size_end + t * (trail.size_start - trail.size_end)
         }
+
         // color
         if (trail.color_tween == true) {
             const c = trail.color_end.clone().lerp(trail.color_start, t);
@@ -235,10 +258,22 @@ export default class ParticlesSystem extends System {
         }
 
         // position
-        if (trail.velocity != null) {
-            attributes.position.array[i * 3 + 0] += trail.velocity.x;
-            attributes.position.array[i * 3 + 1] += trail.velocity.y;
-            attributes.position.array[i * 3 + 2] += trail.velocity.z;
+        if (attributes.velocity != null) {
+            attributes.position.array[i * 3 + 0] += 
+            attributes.velocity.array[i * 3 + 0];
+            
+            attributes.position.array[i * 3 + 1] += 
+            attributes.velocity.array[i * 3 + 1];
+            
+            attributes.position.array[i * 3 + 2] += 
+            attributes.velocity.array[i * 3 + 2];
+        }
+
+        // velocities
+        if(trail.decay) {
+            attributes.velocity.array[i * 3 + 0] *= trail.decay;
+            attributes.velocity.array[i * 3 + 1] *= trail.decay;
+            attributes.velocity.array[i * 3 + 2] *= trail.decay;    
         }
     }
 

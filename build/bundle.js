@@ -30443,6 +30443,31 @@ class CylinderBufferGeometry extends BufferGeometry {
 
 }
 
+class CylinderGeometry extends Geometry {
+
+	constructor( radiusTop, radiusBottom, height, radialSegments, heightSegments, openEnded, thetaStart, thetaLength ) {
+
+		super();
+		this.type = 'CylinderGeometry';
+
+		this.parameters = {
+			radiusTop: radiusTop,
+			radiusBottom: radiusBottom,
+			height: height,
+			radialSegments: radialSegments,
+			heightSegments: heightSegments,
+			openEnded: openEnded,
+			thetaStart: thetaStart,
+			thetaLength: thetaLength
+		};
+
+		this.fromBufferGeometry( new CylinderBufferGeometry( radiusTop, radiusBottom, height, radialSegments, heightSegments, openEnded, thetaStart, thetaLength ) );
+		this.mergeVertices();
+
+	}
+
+}
+
 class PolyhedronBufferGeometry extends BufferGeometry {
 
 	constructor( vertices, indices, radius, detail ) {
@@ -47204,34 +47229,99 @@ class Collider extends src.Component {
   }
 }
 
+class Palette {
+    static debug_color = 0x00ff00;
+
+    static light = 0xffebf3;
+    static grey = 0x805489;
+    static dark = 0x021423;
+
+    static yellow = 0xf7cb01;
+
+    static pink = 0xf700ff;
+    static red = 0xf73201; 
+    static dark_red = 0xc41c01;
+
+    static light_blue = 0x00cbff;
+    static dark_blue = 0x0076ab;
+}
+
+// TODO remove ParticlesEmitter
 class ParticlesEmitter extends src.Component {
   static properties = {
-    particles:20
+    particles: 20
   }
 }
 
+// TODO rename Trail
 class Trail extends src.Component {
   static properties = {
+    behavior: '',
     emitter: null,
+
     // emitter props
+    shape: 'dot',
     max_count: 0,
     system_size: 20,
     count_per_s: 40,
+    initial_visibles: 0,
+    decay: 0,
 
     // particle props
     life: 1, // in s
-    size_tween: false,
+    size_tween: true,
     size_start: 1,
     size_end: 0,
     velocity: null,
-    color_tween: false,
+    color_tween: true,
     color_start: new Vector3(1, 0, 0),
     color_end: new Vector3(0, 0, 1),
+
     // TODO : better name
     // angle animation
     // initial velocity
     // initial visibles
     // TODO use binary values for needsUpdate
+    // TODO decay (velocity)
+  }
+}
+
+class EmitterFactory {
+  static createTrail(velocity) {
+    return {
+      type: 'Trail',
+      behavior: 'trail',
+
+      shape: 'rect',
+      system_size: 4,
+      count_per_s: 40,
+
+      life: 0.8,
+      velocity: velocity,
+      size_start: 3,
+      size_end: 0,
+      color_start: Palette.light,
+      color_end: Palette.dark_red
+    }
+  }
+
+  static createExplosion() {
+    return {
+      type: 'Trail',
+      behavior: 'explosion',
+
+      shape: 'tri',
+      system_size: 5,
+      count_per_s: 0,
+      initial_visibles: 400,
+      decay: 0.96,
+
+      life: 1.2,
+      size_start: 7,
+      size_end: 0,
+      color_start: Palette.red,
+      color_end: Palette.light
+    }
   }
 }
 
@@ -48248,23 +48338,6 @@ var BufferGeometryUtils = {
 
 };
 
-class Palette {
-    static debug_color = 0x00ff00;
-
-    static light = 0xffebf3;
-    static grey = 0x805489;
-    static dark = 0x021423;
-
-    static yellow = 0xf7cb01;
-
-    static pink = 0xf700ff;
-    static red = 0xf73201; 
-    static dark_red = 0xc41c01;
-
-    static light_blue = 0x00cbff;
-    static dark_blue = 0x0076ab;
-}
-
 class CanvasFactory {
     static createTexture(config = {}) {
         const width = config.width || 32;
@@ -48410,23 +48483,31 @@ class MeshFactory {
         const position = config.position || new Vector3();
         const count = config.count || 100;
         const point_size = config.point_size || 0;
-        const system_size = config.system_size || 5;    
+        const system_size = config.system_size || 5;
         const texture = config.texture || CanvasFactory.createTexture();
         const dynamic = config.dynamic || false;
         const geometry = config.geometry || MeshFactory.createRandomBufferGeometry(count, system_size);
 
         const material = new ShaderMaterial({
             uniforms: {
-                u_texture: {type: "t", value: texture},
-                u_size: {type: "f", value: point_size}
+                u_texture: { type: "t", value: texture },
+                u_size: { type: "f", value: point_size }
             },
             vertexShader: particles_vx,
             fragmentShader: particles_fg,
-            alphaTest: 0.5, 
+            alphaTest: 0.5,
             transparent: true,
             depthTest: true
         });
-        
+
+        // const material = new PointsMaterial({
+        //     color,
+        //     size: point_size,
+        //     map: texture,
+        //     alphaTest: 0.5, 
+        //     transparent: true
+        // });
+
         // Three.ParticlesSystem
         const mesh = new Points(geometry, material);
         mesh.position.copy(position);
@@ -48442,8 +48523,8 @@ class MeshFactory {
         const radialSegments = config.radialSegments || 4;
         const color = config.color || Palette.debug_color;
         const position = config.position || new Vector3();
-      
-        var geometry = new CylinderBufferGeometry(
+
+        var geometry = new CylinderGeometry(
             radiusTop,
             radiusBottom,
             height,
@@ -48454,7 +48535,7 @@ class MeshFactory {
         });
         const mesh = new Mesh(geometry, material);
         mesh.position.copy(position);
-        
+
         return mesh;
     }
 
@@ -48474,6 +48555,112 @@ class MeshFactory {
         return geometry;
     }
 
+    static createSpaceShip(config = {}) {
+        const body_color = config.body_color || Palette.light;
+        const line_color = config.line_color || Palette.dark;
+        const cockpit_color = config.cockpit_color || Palette.light_blue;
+        const reactor_color = config.reactor_color || Palette.dark;
+
+        const position = config.position || new Vector3();
+
+        const group = new Group();
+        const mesh = new Mesh();
+        const body = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 3,
+            height: 3,
+            radialSegments: 4,
+            color: body_color,
+            position: new Vector3(0, -1, 0)
+        });
+        mesh.add(body);
+
+        const cockpit = MeshFactory.createCylinder({
+            radiusTop: 2.5,
+            radiusBottom: 3.4,
+            height: 1,
+            radialSegments: 4,
+            color: cockpit_color,
+            position: new Vector3(0, -1.5, 0)
+        });
+        mesh.add(cockpit);
+
+        const right_arm = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 3,
+            height: 6,
+            radialSegments: 4,
+            color: body_color,
+            position: new Vector3(-4, 0, 0)
+        });
+        mesh.add(right_arm);
+
+        const right_line = MeshFactory.createCylinder({
+            radiusTop: 3,
+            radiusBottom: 3,
+            height: 0.5,
+            radialSegments: 4,
+            color: line_color,
+            position: new Vector3(-4, -1, 0)
+        });
+        mesh.add(right_line);
+
+        const right_reactor = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 1,
+            height: 1,
+            radialSegments: 4,
+            color: reactor_color,
+            position: new Vector3(-4, -3.5, 0)
+        });
+        mesh.add(right_reactor);
+
+        const left_arm = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 3,
+            height: 6,
+            radialSegments: 4,
+            color: body_color,
+            position: new Vector3(4, 0, 0)
+        });
+        mesh.add(left_arm);
+
+        const left_line = MeshFactory.createCylinder({
+            radiusTop: 3,
+            radiusBottom: 3,
+            height: 0.5,
+            radialSegments: 4,
+            color: line_color,
+            position: new Vector3(4, -1, 0)
+        });
+        mesh.add(left_line);
+
+        const left_reactor = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 1,
+            height: 1,
+            radialSegments: 4,
+            color: reactor_color,
+            position: new Vector3(4, -3.5, 0)
+        });
+        mesh.add(left_reactor);
+
+        const center_reactor = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 1,
+            height: 1,
+            radialSegments: 4,
+            color: reactor_color,
+            position: new Vector3(0, -3, 0)
+        });
+        mesh.add(center_reactor);
+
+        // construction
+        mesh.rotateX(Math.PI / 2);
+        group.add(mesh);
+        group.position.copy(position);
+        return group;
+    }
 }
 
 class EntityFactory {
@@ -48536,108 +48723,15 @@ class EntityFactory {
     }
 
     static createPlayer() {
-        const group = new Group();
-        const mesh = new Mesh();
-        const body = MeshFactory.createCylinder({
-            radiusTop: 2,
-            radiusBottom: 3,
-            height: 3,
-            radialSegments: 4,
-            color: Palette.light,
-            position: new Vector3(0, -1, 0)
-        }); 
-        mesh.add(body);
 
-        const cockpit = MeshFactory.createCylinder({
-            radiusTop: 2.5,
-            radiusBottom: 3.4,
-            height: 1,
-            radialSegments: 4,
-            color: Palette.light_blue,
-            position: new Vector3(0, -1.5, 0)
-        });
-        mesh.add(cockpit);
-
-        const right_arm = MeshFactory.createCylinder({
-            radiusTop: 2,
-            radiusBottom: 3,
-            height: 6,
-            radialSegments: 4,
-            color: Palette.light,
-            position: new Vector3(-4, 0, 0)
-        }); 
-        mesh.add(right_arm);
-        
-        const right_line = MeshFactory.createCylinder({
-            radiusTop: 3,
-            radiusBottom: 3,
-            height: 0.5,
-            radialSegments: 4,
-            color: Palette.dark,
-            position: new Vector3(-4, -1, 0)
-        });
-        mesh.add(right_line);
-        
-        const right_reactor = MeshFactory.createCylinder({
-            radiusTop: 2,
-            radiusBottom: 1,
-            height: 1,
-            radialSegments: 4,
-            color: Palette.dark,
-            position: new Vector3(-4, -3.5, 0)
-        }); 
-        mesh.add(right_reactor);
-
-        const left_arm = MeshFactory.createCylinder({
-            radiusTop: 2,
-            radiusBottom: 3,
-            height: 6,
-            radialSegments: 4,
-            color: Palette.light,
-            position: new Vector3(4, 0, 0)
-        }); 
-        mesh.add(left_arm);
-        
-        const left_line = MeshFactory.createCylinder({
-            radiusTop: 3,
-            radiusBottom: 3,
-            height: 0.5,
-            radialSegments: 4,
-            color: Palette.dark,
-            position: new Vector3(4, -1, 0)
-        });
-        mesh.add(left_line);
-        
-        const left_reactor = MeshFactory.createCylinder({
-            radiusTop: 2,
-            radiusBottom: 1,
-            height: 1,
-            radialSegments: 4,
-            color: Palette.dark,
-            position: new Vector3(4, -3.5, 0)
-        }); 
-        mesh.add(left_reactor);
-
-        const center_reactor = MeshFactory.createCylinder({
-            radiusTop: 2,
-            radiusBottom: 1,
-            height: 1,
-            radialSegments: 4,
-            color: Palette.dark,
-            position: new Vector3(0, -3, 0)
-        }); 
-        mesh.add(center_reactor);
-
-        // construction
-        mesh.rotateX(Math.PI / 2);
-        group.add(mesh);
+        const mesh = MeshFactory.createSpaceShip();
         
         this.ecs.createEntity({
             id: 'player',
             tags: ['Controllable', 'CameraTarget'],
             components: [{
                 type: 'ThreeComponent',
-                mesh: group,
+                mesh,
             }, {
                 type: 'MoveAlongRing',
                 radius: 160,
@@ -48662,7 +48756,7 @@ class EntityFactory {
                 type: 'ThreeComponent',
                 mesh: mesh,
                 position: position,
-                rotation: direction,
+                rotation: direction.clone(),
             },{
                 type: 'Move',
                 velocity: direction.clone().multiplyScalar(2)
@@ -48676,22 +48770,15 @@ class EntityFactory {
             },{
                 type: 'Collider',
                 against: 'Enemy'
-            },{
-                type: 'Trail',
-                system_size: 4,
-                count_per_s: 40,
-                life: 0.8,
-                velocity: direction.clone().multiplyScalar(-2),
-                size_tween: true,
-                size_start: 3,
-                size_end: 0,
-                color_tween: true,
-                color_start: Palette.light,
-                color_end: Palette.dark_red,
-            }]
+            }, 
+            EmitterFactory.createTrail(
+                direction.clone().multiplyScalar(-2)
+            )
+        ]
         });
     }
 
+    // TODO to remove
     static createParticle(config = {}) {
         const position = config.position || new Vector3();
         const direction = config.direction || new Vector3();
@@ -48952,11 +49039,21 @@ class CollisionSystem extends src.System {
           if(i.has('Explodes')) {
             // console.log(`${i.id} Explodes`);
             i.removeTag('Explodes');
-            i.addComponent({type: 'ParticlesEmitter'});
-            i.addComponent({type: 'ScreenShake'});
-            i.addComponent({type: 'DeleteTimer', time_left: 0.1});
+            // TODO add hide component
+            i.addComponent({type: 'DeleteTimer', time_left: 0.2});
+            
+            // TODO use entityfactory 
+            this.world.createEntity({
+              components : [
+                {type: 'ThreeComponent', mesh: new Mesh(), position: i_mesh.position},
+                {type: 'DeleteTimer', time_left: 2.0},
+                {type: 'ScreenShake'},
+                EmitterFactory.createExplosion()
+              ]
+            });
           }
         }
+        // TODO bullet behavior (deleteTimer + hide)
       });
       
       e_collider.update({checked: true});
@@ -48986,6 +49083,7 @@ class ParticlesSystem extends src.System {
 
         this.changes.forEach(c => {
             if (c.op == 'add' && c.type == 'ParticlesEmitter') {
+                // TODO remove
                 const entity = this.world.getEntity(c.entity);
                 const emitter = this.world.getComponent(c.component);
                 const three = entity.getOne('ThreeComponent');
@@ -49071,7 +49169,11 @@ class ParticlesSystem extends src.System {
 
             attributes.angle.needsUpdate = true;
             attributes.hidden.needsUpdate = true;
-            attributes.position.needsUpdate = (trail.velocity != null);
+            
+            // TODO
+            attributes.position.needsUpdate = true;
+            attributes.velocity.needsUpdate = (trail.decay > 0);
+
             attributes.size.needsUpdate = (trail.size_tween == true);
             attributes.color.needsUpdate = (trail.color_tween == true);
             trail.emitter.position.copy(mesh.position);
@@ -49105,15 +49207,16 @@ class ParticlesSystem extends src.System {
     createParticleEmitter(three, trail) {
         const mesh = three.mesh;
         const system_size = trail.system_size;
-        const count = trail.max_count || 
-            trail.count_per_s * trail.life;
+        const visibles = trail.initial_visibles;
+
+        const count = trail.max_count || visibles + trail.count_per_s * trail.life;
 
         const emitter = MeshFactory.createPoints({
             count,
             system_size,
             position: mesh.position,
             texture: CanvasFactory.createTexture({
-                shape: 'rect'
+                shape: trail.shape
             }),
             dynamic: true,
         });
@@ -49124,6 +49227,7 @@ class ParticlesSystem extends src.System {
         const size = new Float32Array(count);
         const age = new Float32Array(count);
         const color = new Float32Array(count * 3);
+        const velocity = new Float32Array(count * 3);
 
         // set geometry attributes
         emitter.geometry.setAttribute('angle',
@@ -49134,19 +49238,27 @@ class ParticlesSystem extends src.System {
             new BufferAttribute(size, 1));
         emitter.geometry.setAttribute('color',
             new BufferAttribute(color, 3));
+        emitter.geometry.setAttribute('velocity',
+            new BufferAttribute(velocity, 3));
 
         // setup trail object
         trail.emitter = emitter;
         trail.age = age;
         trail.max_count = count;
-        
+
+        // convert color
+        if(Number.isInteger(trail.color_start))
+            trail.color_start = new Color(trail.color_start);
+        if(Number.isInteger(trail.color_end))
+            trail.color_end = new Color(trail.color_end);
+
         // tmp vars
         trail.v3 = new Vector3();
 
         // insert data in arrays
         const attributes = emitter.geometry.attributes;
         for (let i = 0; i < count; i++) {
-            this.createParticle(i, trail, attributes);
+            this.createParticle(i, trail, attributes, i>=visibles);
         }
         return emitter;
     }
@@ -49155,21 +49267,26 @@ class ParticlesSystem extends src.System {
         trail.age[i] = 0;
         attributes.hidden.array[i] = hidden;
         attributes.angle.array[i] = Math.random() * Math.PI * 2;
-        attributes.size.array[i] = trail.size_start;
+        
+        attributes.size.array[i] = Math.random() * trail.size_start + trail.size_start;
 
+
+        // position
         trail.v3 = trail.v3.random()
             .addScalar(-0.5)
             .setLength(trail.system_size);
         attributes.position.set(trail.v3.toArray(), i * 3);
 
-        if(Number.isInteger(trail.color_start)) {
-            trail.color_start = new Color(trail.color_start);
+        // velocity
+        if (trail.behavior == 'trail') {
+            attributes.velocity.set(trail.velocity.toArray(), i * 3);
+        }
+        else if (trail.behavior == 'explosion') {
+            trail.v3.setLength(Math.random() * trail.system_size);
+            attributes.velocity.set(trail.v3.toArray(), i * 3);
         }
 
-        if(Number.isInteger(trail.color_end)) {
-            trail.color_end = new Color(trail.color_end);
-        }
-
+        // color
         attributes.color.set(trail.color_start.toArray(), i * 3);
     }
 
@@ -49178,19 +49295,22 @@ class ParticlesSystem extends src.System {
         const t = 1 - trail.age[i] / trail.life;
 
         // hide
-        if (t < 0) {
+        if (t < 0)
             attributes.hidden.array[i] = 1;
+
+        // is hidden ? 
+        if(attributes.hidden.array[i] == 1)
             return;
-        }
 
         // angle
-        attributes.angle.array[i] += 0.03;
+        attributes.angle.array[i] += .05;
 
         // size
         if (trail.size_tween == true) {
             attributes.size.array[i] = 
             trail.size_end + t * (trail.size_start - trail.size_end);
         }
+
         // color
         if (trail.color_tween == true) {
             const c = trail.color_end.clone().lerp(trail.color_start, t);
@@ -49198,10 +49318,22 @@ class ParticlesSystem extends src.System {
         }
 
         // position
-        if (trail.velocity != null) {
-            attributes.position.array[i * 3 + 0] += trail.velocity.x;
-            attributes.position.array[i * 3 + 1] += trail.velocity.y;
-            attributes.position.array[i * 3 + 2] += trail.velocity.z;
+        if (attributes.velocity != null) {
+            attributes.position.array[i * 3 + 0] += 
+            attributes.velocity.array[i * 3 + 0];
+            
+            attributes.position.array[i * 3 + 1] += 
+            attributes.velocity.array[i * 3 + 1];
+            
+            attributes.position.array[i * 3 + 2] += 
+            attributes.velocity.array[i * 3 + 2];
+        }
+
+        // velocities
+        if(trail.decay) {
+            attributes.velocity.array[i * 3 + 0] *= trail.decay;
+            attributes.velocity.array[i * 3 + 1] *= trail.decay;
+            attributes.velocity.array[i * 3 + 2] *= trail.decay;    
         }
     }
 

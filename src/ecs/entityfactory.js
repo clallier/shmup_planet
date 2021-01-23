@@ -2,6 +2,7 @@ import { Color, Matrix4, Mesh, TetrahedronBufferGeometry, Vector3, MeshBasicMate
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import MeshFactory from "../meshfactory";
 import Palette from "../palette";
+import {EmitterFactory} from "../ecs/components/particlesemitter" 
 
 export default class EntityFactory {
     static init(ecs) {
@@ -63,108 +64,15 @@ export default class EntityFactory {
     }
 
     static createPlayer() {
-        const group = new Group();
-        const mesh = new Mesh();
-        const body = MeshFactory.createCylinder({
-            radiusTop: 2,
-            radiusBottom: 3,
-            height: 3,
-            radialSegments: 4,
-            color: Palette.light,
-            position: new Vector3(0, -1, 0)
-        }); 
-        mesh.add(body)
 
-        const cockpit = MeshFactory.createCylinder({
-            radiusTop: 2.5,
-            radiusBottom: 3.4,
-            height: 1,
-            radialSegments: 4,
-            color: Palette.light_blue,
-            position: new Vector3(0, -1.5, 0)
-        });
-        mesh.add(cockpit);
-
-        const right_arm = MeshFactory.createCylinder({
-            radiusTop: 2,
-            radiusBottom: 3,
-            height: 6,
-            radialSegments: 4,
-            color: Palette.light,
-            position: new Vector3(-4, 0, 0)
-        }); 
-        mesh.add(right_arm);
-        
-        const right_line = MeshFactory.createCylinder({
-            radiusTop: 3,
-            radiusBottom: 3,
-            height: 0.5,
-            radialSegments: 4,
-            color: Palette.dark,
-            position: new Vector3(-4, -1, 0)
-        });
-        mesh.add(right_line);
-        
-        const right_reactor = MeshFactory.createCylinder({
-            radiusTop: 2,
-            radiusBottom: 1,
-            height: 1,
-            radialSegments: 4,
-            color: Palette.dark,
-            position: new Vector3(-4, -3.5, 0)
-        }); 
-        mesh.add(right_reactor);
-
-        const left_arm = MeshFactory.createCylinder({
-            radiusTop: 2,
-            radiusBottom: 3,
-            height: 6,
-            radialSegments: 4,
-            color: Palette.light,
-            position: new Vector3(4, 0, 0)
-        }); 
-        mesh.add(left_arm);
-        
-        const left_line = MeshFactory.createCylinder({
-            radiusTop: 3,
-            radiusBottom: 3,
-            height: 0.5,
-            radialSegments: 4,
-            color: Palette.dark,
-            position: new Vector3(4, -1, 0)
-        });
-        mesh.add(left_line);
-        
-        const left_reactor = MeshFactory.createCylinder({
-            radiusTop: 2,
-            radiusBottom: 1,
-            height: 1,
-            radialSegments: 4,
-            color: Palette.dark,
-            position: new Vector3(4, -3.5, 0)
-        }); 
-        mesh.add(left_reactor);
-
-        const center_reactor = MeshFactory.createCylinder({
-            radiusTop: 2,
-            radiusBottom: 1,
-            height: 1,
-            radialSegments: 4,
-            color: Palette.dark,
-            position: new Vector3(0, -3, 0)
-        }); 
-        mesh.add(center_reactor);
-
-        // construction
-        mesh.rotateX(Math.PI / 2);
-        group.add(mesh);
+        const mesh = MeshFactory.createSpaceShip();
         
         this.ecs.createEntity({
             id: 'player',
             tags: ['Controllable', 'CameraTarget'],
             components: [{
                 type: 'ThreeComponent',
-                mesh: group,
+                mesh,
             }, {
                 type: 'MoveAlongRing',
                 radius: 160,
@@ -189,7 +97,7 @@ export default class EntityFactory {
                 type: 'ThreeComponent',
                 mesh: mesh,
                 position: position,
-                rotation: direction,
+                rotation: direction.clone(),
             },{
                 type: 'Move',
                 velocity: direction.clone().multiplyScalar(2)
@@ -203,22 +111,15 @@ export default class EntityFactory {
             },{
                 type: 'Collider',
                 against: 'Enemy'
-            },{
-                type: 'Trail',
-                system_size: 4,
-                count_per_s: 40,
-                life: 0.8,
-                velocity: direction.clone().multiplyScalar(-2),
-                size_tween: true,
-                size_start: 3,
-                size_end: 0,
-                color_tween: true,
-                color_start: Palette.light,
-                color_end: Palette.dark_red,
-            }]
+            }, 
+            EmitterFactory.createTrail(
+                direction.clone().multiplyScalar(-2)
+            )
+        ]
         });
     }
 
+    // TODO to remove
     static createParticle(config = {}) {
         const position = config.position || new Vector3();
         const direction = config.direction || new Vector3();
