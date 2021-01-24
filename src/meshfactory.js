@@ -52,17 +52,19 @@ export default class MeshFactory {
         return mesh;
     }
 
-    static createTetra(
-        radius = 1.0,
-        detail = 0,
-        color = Palette.pink,
-        position = new Vector3()) {
+    static createTetra(config = {}) {
+        const radius = config.radius || 1.0;
+        const detail = config.detail || 0;
+        const color = config.color || Palette.debug_color;
+        const position = config.position || new Vector3();
+
         const geometry = new TetrahedronGeometry(
             radius,
-            detail); // detail
+            detail
+        );
 
         const material = new MeshBasicMaterial({
-            color: color
+            color
         });
         const mesh = new Mesh(geometry, material);
         mesh.position.copy(position);
@@ -70,16 +72,23 @@ export default class MeshFactory {
         return mesh;
     }
 
-    static createBox(
-        width = 1.0,
-        height = 1.0,
-        depth = 1.0,
-        color = Palette.light_blue,
-        position = new Vector3()) {
-        const geometry = new BoxGeometry(width, height, depth);
+    static createBox(config = {}) {
+        const width = config.width || 1.0;
+        const height = config.height || 1.0;
+        const depth = config.depth || 1.0;
+        const color = config.color || Palette.debug_color;
+        const position = config.position || new Vector3();
+
+        const geometry = new BoxGeometry(
+            width,
+            height,
+            depth
+        );
+
         const material = new MeshBasicMaterial({
-            color: color
+            color
         });
+
         const mesh = new Mesh(geometry, material);
         mesh.position.copy(position);
 
@@ -135,11 +144,13 @@ export default class MeshFactory {
             radiusTop,
             radiusBottom,
             height,
-            radialSegments);
+            radialSegments
+        );
 
         const material = new MeshBasicMaterial({
             color
         });
+
         const mesh = new Mesh(geometry, material);
         mesh.position.copy(position);
 
@@ -268,4 +279,5 @@ export default class MeshFactory {
         group.position.copy(position);
         return group;
     }
+
 }

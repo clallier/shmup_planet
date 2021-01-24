@@ -63,7 +63,7 @@ class App {
         EntityFactory.createRings();
         EntityFactory.createBackground();
         EntityFactory.createPlayer();
-        EntityFactory.createEnemies();
+        EntityFactory.createTestEnemy();
 
         this.resize();
         addEventListener('resize', () => this.resize(), false);

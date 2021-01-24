@@ -1,6 +1,4 @@
 import { System } from "ape-ecs";
-import { Mesh } from "three";
-import { EmitterFactory } from "../components/particlesemitter";
 import EntityFactory from "../entityfactory";
 
 export default class CollisionSystem extends System {
@@ -41,8 +39,7 @@ export default class CollisionSystem extends System {
             
             // create an explosion 
             EntityFactory.createParticleExplosion({
-              position: i_mesh.position,
-              time_left: 2
+              position: i_mesh.position
             })
           }
         }

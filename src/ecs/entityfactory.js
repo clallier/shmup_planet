@@ -2,7 +2,7 @@ import { Color, Matrix4, Mesh, TetrahedronBufferGeometry, Vector3, MeshBasicMate
 import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import MeshFactory from "../meshfactory";
 import Palette from "../palette";
-import {EmitterFactory} from "../ecs/components/particlesemitter" 
+import { EmitterFactory } from "../ecs/components/particlesemitter"
 
 export default class EntityFactory {
     static init(ecs) {
@@ -66,7 +66,7 @@ export default class EntityFactory {
     static createPlayer() {
 
         const mesh = MeshFactory.createSpaceShip();
-        
+
         this.ecs.createEntity({
             id: 'player',
             tags: ['Controllable', 'CameraTarget'],
@@ -87,7 +87,12 @@ export default class EntityFactory {
     static createBullet(type, position, direction) {
         let mesh = null;
         if (type == 'bullet')
-            mesh = MeshFactory.createBox(4, 4, 4, Palette.dark_blue);
+            mesh = MeshFactory.createBox({
+                width: 4,
+                height: 4,
+                depth: 4,
+                color: Palette.dark_blue
+            });
         else
             console.warn('unknown bullet type');
 
@@ -98,31 +103,31 @@ export default class EntityFactory {
                 mesh: mesh,
                 position: position,
                 rotation: direction.clone(),
-            },{
+            }, {
                 type: 'Move',
                 velocity: direction.clone().multiplyScalar(2)
-            },{
+            }, {
                 type: 'TargetColor',
                 color: new Color(Palette.light),
                 duration: 0.8
-            },{
+            }, {
                 type: 'DeleteTimer',
                 time_left: 0.8
-            },{
+            }, {
                 type: 'Collider',
                 against: 'Enemy'
-            }, 
+            },
             EmitterFactory.createTrail(
                 direction.clone().multiplyScalar(-2)
             )
-        ]
+            ]
         });
     }
 
     static createBackground() {
         // asteroids
         const geoms = [];
-        const material = new MeshBasicMaterial({color: Palette.dark_red});
+        const material = new MeshBasicMaterial({ color: Palette.dark_red });
         const m4 = new Matrix4();
         for (let l = 0; l < 3; l++) {
             const n = 4 * (l + 1) ** 3;
@@ -148,7 +153,7 @@ export default class EntityFactory {
 
         const mesh = new Mesh();
         mesh.add(new Mesh(
-            BufferGeometryUtils.mergeBufferGeometries(geoms), 
+            BufferGeometryUtils.mergeBufferGeometries(geoms),
             material
         ));
 
@@ -184,7 +189,11 @@ export default class EntityFactory {
                 tags: ['Enemy', 'Explodes'],
                 components: [{
                     type: 'ThreeComponent',
-                    mesh: MeshFactory.createTetra(size, 1, Palette.red),
+                    mesh: MeshFactory.createTetra({
+                        radius: size,
+                        detail: 1,
+                        color: Palette.red
+                    }),
                     position: position
                 }, {
                     type: 'MoveAlongRing',
@@ -212,12 +221,14 @@ export default class EntityFactory {
             tags: ['Enemy', 'Explodes'],
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createTetra(12),
+                mesh: MeshFactory.createTetra({
+                    radius: 12
+                }),
                 position: position
             }, {
                 type: 'MoveAlongRing',
-                radius: radius,
-                angle: angle,
+                radius,
+                angle,
                 speed: 0
             }, {
                 type: 'Collider'
@@ -228,16 +239,16 @@ export default class EntityFactory {
 
     static createParticleExplosion(config = {}) {
         const position = config.position || new Vector3();
-        const time_left = config.time_left || 1;
+        const time_left = config.time_left || 2;
 
         this.ecs.createEntity({
-            components : [
-              {type: 'ThreeComponent', mesh: new Mesh(), position},
-              {type: 'DeleteTimer', time_left: 2.0},
-              {type: 'ScreenShake'},
-              EmitterFactory.createExplosion()
+            components: [
+                { type: 'ThreeComponent', mesh: new Mesh(), position },
+                { type: 'DeleteTimer', time_left },
+                { type: 'ScreenShake' },
+                EmitterFactory.createExplosion()
             ]
-          })
+        })
     }
-    
+
 }

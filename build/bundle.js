@@ -48294,17 +48294,19 @@ class MeshFactory {
         return mesh;
     }
 
-    static createTetra(
-        radius = 1.0,
-        detail = 0,
-        color = Palette.pink,
-        position = new Vector3()) {
+    static createTetra(config = {}) {
+        const radius = config.radius || 1.0;
+        const detail = config.detail || 0;
+        const color = config.color || Palette.debug_color;
+        const position = config.position || new Vector3();
+
         const geometry = new TetrahedronGeometry(
             radius,
-            detail); // detail
+            detail
+        );
 
         const material = new MeshBasicMaterial({
-            color: color
+            color
         });
         const mesh = new Mesh(geometry, material);
         mesh.position.copy(position);
@@ -48312,16 +48314,23 @@ class MeshFactory {
         return mesh;
     }
 
-    static createBox(
-        width = 1.0,
-        height = 1.0,
-        depth = 1.0,
-        color = Palette.light_blue,
-        position = new Vector3()) {
-        const geometry = new BoxGeometry(width, height, depth);
+    static createBox(config = {}) {
+        const width = config.width || 1.0;
+        const height = config.height || 1.0;
+        const depth = config.depth || 1.0;
+        const color = config.color || Palette.debug_color;
+        const position = config.position || new Vector3();
+
+        const geometry = new BoxGeometry(
+            width,
+            height,
+            depth
+        );
+
         const material = new MeshBasicMaterial({
-            color: color
+            color
         });
+
         const mesh = new Mesh(geometry, material);
         mesh.position.copy(position);
 
@@ -48377,11 +48386,13 @@ class MeshFactory {
             radiusTop,
             radiusBottom,
             height,
-            radialSegments);
+            radialSegments
+        );
 
         const material = new MeshBasicMaterial({
             color
         });
+
         const mesh = new Mesh(geometry, material);
         mesh.position.copy(position);
 
@@ -48510,6 +48521,7 @@ class MeshFactory {
         group.position.copy(position);
         return group;
     }
+
 }
 
 class EntityFactory {
@@ -48574,7 +48586,7 @@ class EntityFactory {
     static createPlayer() {
 
         const mesh = MeshFactory.createSpaceShip();
-        
+
         this.ecs.createEntity({
             id: 'player',
             tags: ['Controllable', 'CameraTarget'],
@@ -48595,7 +48607,12 @@ class EntityFactory {
     static createBullet(type, position, direction) {
         let mesh = null;
         if (type == 'bullet')
-            mesh = MeshFactory.createBox(4, 4, 4, Palette.dark_blue);
+            mesh = MeshFactory.createBox({
+                width: 4,
+                height: 4,
+                depth: 4,
+                color: Palette.dark_blue
+            });
         else
             console.warn('unknown bullet type');
 
@@ -48606,31 +48623,31 @@ class EntityFactory {
                 mesh: mesh,
                 position: position,
                 rotation: direction.clone(),
-            },{
+            }, {
                 type: 'Move',
                 velocity: direction.clone().multiplyScalar(2)
-            },{
+            }, {
                 type: 'TargetColor',
                 color: new Color(Palette.light),
                 duration: 0.8
-            },{
+            }, {
                 type: 'DeleteTimer',
                 time_left: 0.8
-            },{
+            }, {
                 type: 'Collider',
                 against: 'Enemy'
-            }, 
+            },
             EmitterFactory.createTrail(
                 direction.clone().multiplyScalar(-2)
             )
-        ]
+            ]
         });
     }
 
     static createBackground() {
         // asteroids
         const geoms = [];
-        const material = new MeshBasicMaterial({color: Palette.dark_red});
+        const material = new MeshBasicMaterial({ color: Palette.dark_red });
         const m4 = new Matrix4();
         for (let l = 0; l < 3; l++) {
             const n = 4 * (l + 1) ** 3;
@@ -48656,7 +48673,7 @@ class EntityFactory {
 
         const mesh = new Mesh();
         mesh.add(new Mesh(
-            BufferGeometryUtils.mergeBufferGeometries(geoms), 
+            BufferGeometryUtils.mergeBufferGeometries(geoms),
             material
         ));
 
@@ -48692,7 +48709,11 @@ class EntityFactory {
                 tags: ['Enemy', 'Explodes'],
                 components: [{
                     type: 'ThreeComponent',
-                    mesh: MeshFactory.createTetra(size, 1, Palette.red),
+                    mesh: MeshFactory.createTetra({
+                        radius: size,
+                        detail: 1,
+                        color: Palette.red
+                    }),
                     position: position
                 }, {
                     type: 'MoveAlongRing',
@@ -48720,12 +48741,14 @@ class EntityFactory {
             tags: ['Enemy', 'Explodes'],
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createTetra(12),
+                mesh: MeshFactory.createTetra({
+                    radius: 12
+                }),
                 position: position
             }, {
                 type: 'MoveAlongRing',
-                radius: radius,
-                angle: angle,
+                radius,
+                angle,
                 speed: 0
             }, {
                 type: 'Collider'
@@ -48736,18 +48759,18 @@ class EntityFactory {
 
     static createParticleExplosion(config = {}) {
         const position = config.position || new Vector3();
-        const time_left = config.time_left || 1;
+        const time_left = config.time_left || 2;
 
         this.ecs.createEntity({
-            components : [
-              {type: 'ThreeComponent', mesh: new Mesh(), position},
-              {type: 'DeleteTimer', time_left: 2.0},
-              {type: 'ScreenShake'},
-              EmitterFactory.createExplosion()
+            components: [
+                { type: 'ThreeComponent', mesh: new Mesh(), position },
+                { type: 'DeleteTimer', time_left },
+                { type: 'ScreenShake' },
+                EmitterFactory.createExplosion()
             ]
-          });
+        });
     }
-    
+
 }
 
 class TimeSystem extends src.System {
@@ -48813,9 +48836,8 @@ class TimeSystem extends src.System {
   *waitEndOfWave(i) {
     // check no enemies left for this wave
     while (true) {
-      const enemies = this.world.getEntities('Enemy');
-      enemies.delete(undefined);
-      console.log(`Wave: ${i}, enemies: ${enemies.size}`);
+      const enemies = this.createQuery().fromAll('Enemy').execute();
+      // console.log(`Wave: ${i}, enemies: ${enemies.size}`);
       if (enemies.size == 0) break;
       yield this.runner.waitSeconds(1);
     }
@@ -49123,8 +49145,7 @@ class CollisionSystem extends src.System {
             
             // create an explosion 
             EntityFactory.createParticleExplosion({
-              position: i_mesh.position,
-              time_left: 2
+              position: i_mesh.position
             });
           }
         }
@@ -49370,9 +49391,12 @@ class ParticlesSystem extends src.System {
         // velocities
         if (trail.decay) {
             attributes.velocity.array[i * 3 + 0] *= trail.decay;
+            attributes.velocity.array[i * 3 + 0] *= 0.9;
+
             attributes.velocity.array[i * 3 + 1] *= trail.decay;
-            attributes.velocity.array[i * 3 + 1] -= 0.07;
+            
             attributes.velocity.array[i * 3 + 2] *= trail.decay;
+            attributes.velocity.array[i * 3 + 2] *= 0.9;
         }
     }
 
@@ -51978,7 +52002,7 @@ class App {
         EntityFactory.createRings();
         EntityFactory.createBackground();
         EntityFactory.createPlayer();
-        EntityFactory.createEnemies();
+        EntityFactory.createTestEnemy();
 
         this.resize();
         addEventListener('resize', () => this.resize(), false);

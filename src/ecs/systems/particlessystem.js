@@ -235,9 +235,12 @@ export default class ParticlesSystem extends System {
         // velocities
         if (trail.decay) {
             attributes.velocity.array[i * 3 + 0] *= trail.decay;
+            attributes.velocity.array[i * 3 + 0] *= 0.9;
+
             attributes.velocity.array[i * 3 + 1] *= trail.decay;
-            attributes.velocity.array[i * 3 + 1] -= 0.07;
+            
             attributes.velocity.array[i * 3 + 2] *= trail.decay;
+            attributes.velocity.array[i * 3 + 2] *= 0.9;
         }
     }
 

@@ -66,9 +66,8 @@ export default class TimeSystem extends System {
   *waitEndOfWave(i) {
     // check no enemies left for this wave
     while (true) {
-      const enemies = this.world.getEntities('Enemy');
-      enemies.delete(undefined);
-      console.log(`Wave: ${i}, enemies: ${enemies.size}`);
+      const enemies = this.createQuery().fromAll('Enemy').execute();
+      // console.log(`Wave: ${i}, enemies: ${enemies.size}`);
       if (enemies.size == 0) break;
       yield this.runner.waitSeconds(1);
     }
