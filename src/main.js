@@ -1,17 +1,16 @@
-import {Destroy, DeleteTimer} from './ecs/components/deletetimer';
+import { Destroy, DeleteTimer } from './ecs/components/deletetimer';
 import GameLoop from './ecs/components/gameloop';
-import {ThreeComponent, ScreenShake, TargetColor} from './ecs/components/threecomponent';
-import {MoveAlongRing, Move} from './ecs/components/move';
+import { ThreeComponent, ScreenShake, TargetColor } from './ecs/components/threecomponent';
+import { MoveAlongRing, Move } from './ecs/components/move';
 import Weapon from './ecs/components/weapon';
 import Collider from './ecs/components/collider';
-import {ParticlesEmitter, Trail} from './ecs/components/particlesemitter';
+import { Trail } from './ecs/components/particlesemitter';
 
 import TimeSystem from './ecs/systems/timesystem';
 import ThreeSystem from './ecs/systems/threesystem';
 import MoveSystem from './ecs/systems/movesystem';
 import ControlSystem from './ecs/systems/controlsystem';
 import WeaponSystem from './ecs/systems/weaponsystem';
-import DeleteSystem from './ecs/systems/deletesystem';
 import CollisionSystem from './ecs/systems/collisionsystem';
 import ParticlesSystem from './ecs/systems/particlessystem';
 
@@ -27,7 +26,7 @@ class App {
         this.ts = new ThreeScene();
         this.ecs = new World();
         EntityFactory.init(this.ecs);
-        
+
         // components
         this.ecs.registerComponent(GameLoop);
         this.ecs.registerComponent(Destroy);
@@ -38,13 +37,12 @@ class App {
         this.ecs.registerComponent(Move);
         this.ecs.registerComponent(Weapon);
         this.ecs.registerComponent(Collider);
-        this.ecs.registerComponent(ParticlesEmitter);
         this.ecs.registerComponent(TargetColor);
         this.ecs.registerComponent(Trail);
-        
+
         // tags
         this.ecs.registerTags(
-            'UpdateShader', 
+            'UpdateShader',
             'Controllable', 'CameraTarget',
             'Bullet', 'Enemy', 'Particle',
             'Explodes'
@@ -58,7 +56,6 @@ class App {
         this.ecs.registerSystem('frame', MoveSystem);
         this.ecs.registerSystem('frame', CollisionSystem);
         this.ecs.registerSystem('frame', ThreeSystem, [this.ts]);
-        this.ecs.registerSystem('frame', DeleteSystem);
 
         // create entities
         EntityFactory.createGameLoop();
@@ -78,7 +75,7 @@ class App {
         let delta = (time - this.lastTime);
         delta = Math.min(delta, 0.1);
         this.lastTime = time;
-        this.ecs.getEntity('game').getOne('GameLoop').update({time, delta})
+        this.ecs.getEntity('game').getOne('GameLoop').update({ time, delta })
 
         this.ecs.runSystems('frame');
         this.ecs.tick();

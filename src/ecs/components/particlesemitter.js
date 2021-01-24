@@ -2,13 +2,6 @@ import { Component } from "ape-ecs";
 import { Vector3 } from "three";
 import Palette from "../../palette";
 
-// TODO remove ParticlesEmitter
-export class ParticlesEmitter extends Component {
-  static properties = {
-    particles: 20
-  }
-}
-
 // TODO rename Trail
 export class Trail extends Component {
   static properties = {
@@ -33,12 +26,9 @@ export class Trail extends Component {
     color_start: new Vector3(1, 0, 0),
     color_end: new Vector3(0, 0, 1),
 
-    // TODO : better name
-    // angle animation
-    // initial velocity
-    // initial visibles
-    // TODO use binary values for needsUpdate
-    // TODO decay (velocity)
+    // TODO angle animation
+    // TODO opacity + animation
+    // TODO add spread (random inital values constrol)  
   }
 }
 
@@ -67,13 +57,13 @@ export class EmitterFactory {
       behavior: 'explosion',
 
       shape: 'tri',
-      system_size: 5,
+      system_size: 6,
       count_per_s: 0,
-      initial_visibles: 400,
+      initial_visibles: 120,
       decay: 0.96,
 
       life: 1.2,
-      size_start: 7,
+      size_start: 10,
       size_end: 0,
       color_start: Palette.red,
       color_end: Palette.light

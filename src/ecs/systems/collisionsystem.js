@@ -1,6 +1,7 @@
 import { System } from "ape-ecs";
 import { Mesh } from "three";
 import { EmitterFactory } from "../components/particlesemitter";
+import EntityFactory from "../entityfactory";
 
 export default class CollisionSystem extends System {
   init() {
@@ -38,14 +39,10 @@ export default class CollisionSystem extends System {
             // TODO add hide component
             i.addComponent({type: 'DeleteTimer', time_left: 0.2});
             
-            // TODO use entityfactory 
-            this.world.createEntity({
-              components : [
-                {type: 'ThreeComponent', mesh: new Mesh(), position: i_mesh.position},
-                {type: 'DeleteTimer', time_left: 2.0},
-                {type: 'ScreenShake'},
-                EmitterFactory.createExplosion()
-              ]
+            // create an explosion 
+            EntityFactory.createParticleExplosion({
+              position: i_mesh.position,
+              time_left: 2
             })
           }
         }

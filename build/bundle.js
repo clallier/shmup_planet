@@ -47246,13 +47246,6 @@ class Palette {
     static dark_blue = 0x0076ab;
 }
 
-// TODO remove ParticlesEmitter
-class ParticlesEmitter extends src.Component {
-  static properties = {
-    particles: 20
-  }
-}
-
 // TODO rename Trail
 class Trail extends src.Component {
   static properties = {
@@ -47277,12 +47270,9 @@ class Trail extends src.Component {
     color_start: new Vector3(1, 0, 0),
     color_end: new Vector3(0, 0, 1),
 
-    // TODO : better name
-    // angle animation
-    // initial velocity
-    // initial visibles
-    // TODO use binary values for needsUpdate
-    // TODO decay (velocity)
+    // TODO angle animation
+    // TODO opacity + animation
+    // TODO add spread (random inital values constrol)  
   }
 }
 
@@ -47311,13 +47301,13 @@ class EmitterFactory {
       behavior: 'explosion',
 
       shape: 'tri',
-      system_size: 5,
+      system_size: 6,
       count_per_s: 0,
-      initial_visibles: 400,
+      initial_visibles: 120,
       decay: 0.96,
 
       life: 1.2,
-      size_start: 7,
+      size_start: 10,
       size_end: 0,
       color_start: Palette.red,
       color_end: Palette.light
@@ -47325,234 +47315,93 @@ class EmitterFactory {
   }
 }
 
-class TimeSystem extends src.System {
-  init() {
-    this.timerQy = this.createQuery()
-      .fromAll('DeleteTimer').persist();
-
-    this.screenShakeQy = this.createQuery()
-      .fromAll('ScreenShake').persist();
-  }
-
-  update() {
-    const loop = this.world.getEntity('game').getOne('GameLoop');
-    
-    this.timerQy.execute().forEach(e => {
-      const timer = e.getOne('DeleteTimer');
-      if(timer == null) return;
-      
-      timer.time_left -= loop.delta;
-      timer.update();
-      if(timer.time_left <= 0) {
-        // console.log(`entity ${e.id} marked for delete`)
-        e.addComponent({type: 'Destroy'});
-      }
-    });
-
-    this.screenShakeQy.execute().forEach(e => {
-      const screenShake = e.getOne('ScreenShake');
-      if(screenShake == null) return;
-
-      screenShake.duration -= loop.delta;
-      screenShake.update();
-
-      if(screenShake.duration <= 0) {
-          e.removeComponent(screenShake);
-      }
-  });
-  }
-}
-
-class ThreeSystem extends src.System {
-    init(threeScene) {
-        this.threeScene = threeScene;
-        this.scene = this.threeScene.scene;
-        this.camera = this.threeScene.camera;
-        this.target = new Vector3();
-
-        this.subscribe('ThreeComponent');
-        this.subscribe('Destroy');
-
-        this.updateShaderQy = this.createQuery()
-            .fromAll('ThreeComponent', 'UpdateShader');
-
-        this.cameraTargetQy = this.createQuery()
-            .fromAll('MoveAlongRing', 'CameraTarget');
-            
-        this.screenShakeQy = this.createQuery()
-            .fromAll('ThreeComponent', 'ScreenShake').persist();
-
-        this.targetColorQy = this.createQuery()
-            .fromAll('ThreeComponent', 'TargetColor').persist();
+class CoroutineRunner {
+    constructor() {
+      this.generator_stacks = [];
+      this.add_queue = [];
+      this.remove_queue = new Set();
+      this.delta = 0;
     }
-
-    update() {
-        const loop = this.world.getEntity('game').getOne('GameLoop');
-
-        this.changes.forEach(c => {
-            if(c.op == 'add' && c.type == 'ThreeComponent') {
-                const component = this.world.getComponent(c.component);
-                const mesh = component.mesh;
-                mesh.name = component.id;
-                if(component.position != null)
-                    mesh.position.copy(component.position);
-                if(component.rotation != null)
-                    mesh.lookAt(component.rotation);
-                this.scene.add(mesh);
+  
+    *waitSeconds(duration) {
+      while (duration > 0) {
+        duration -= this.delta;
+        // console.log(`duration: ${duration}`);
+        yield;
+      }
+    }
+  
+    isBusy() {
+      return (this.add_queue.length +
+        this.generator_stacks.length > 0);
+    }
+  
+    add(generator, delay = 0) {
+      const generators = [generator];
+      if (delay)
+        generators.push(this.waitSeconds(delay));
+  
+      this.add_queue.push(generators);
+    }
+  
+    remove() {
+      this.remove_queue.add(generator);
+    }
+  
+    update(delta) {
+      this.delta = delta;
+      this._addQueued();
+      this._removeQueued();
+  
+      // update all stacks in // 
+      for (const stack of this.generator_stacks) {
+        const main_generator = stack[0];
+        // if one coroutine remove one other
+        if (this.remove_queue.has(main_generator)) {
+          continue;
+        }
+  
+        while (stack.length) {
+          const gen = stack[stack.length - 1];
+          const { value, done } = gen.next();
+  
+          if (done) {
+            if (stack.length == 1) {
+              this.remove_queue.add(gen);
+              break;
             }
-
-            else if (c.op == 'add' && c.type == 'Destroy') {
-                const e = this.world.getEntity(c.entity);
-                if(e == null) return;
-                const component = e.getOne('ThreeComponent');
-                if(component == null) return;
-                // console.log(`removed mesh from ${c.entity}`);
-                const mesh = component.mesh;
-                mesh.geometry.dispose();
-                mesh.material.dispose();
-                this.scene.remove(mesh);
-                this.threeScene.renderer.renderLists.dispose();
-            }
-        });
-
-        this.updateShaderQy.execute().forEach(e => {
-            const component = e.getOne('ThreeComponent');
-            if(component == null) return;
-            component.mesh.material.uniforms['time'].value = loop.time;
-        });
-
-        this.cameraTargetQy.execute().forEach(e => {
-            const move = e.getOne('MoveAlongRing');
-            if(move == null) return;
-
-            const h = Math.abs(move.speed) * 60;
-            const r = move.radius + 20 + Math.abs(move.speed) * 50;
-            const futur_angle = move.angle + move.speed * 4;
-            // console.log(h);
-            this.camera.fov = 100 + 2*h*h;
-            this.target.y = 20 + h + Math.sin(loop.time) * 1.7;
-            this.target.x = Math.cos(futur_angle) * r;
-            this.target.z = Math.sin(futur_angle) * r;
-            
-            this.camera.position.lerp(this.target, 0.3);
-            this.camera.lookAt(0, 0, 0);
-            this.camera.updateProjectionMatrix();
-        });
-
-        this.screenShakeQy.execute().forEach(e => {
-            const screenShake = e.getOne('ScreenShake');
-            const component = e.getOne('ThreeComponent');
-
-            if(screenShake == null) return;
-            if(component == null) return;
-
-            const p = screenShake.power;
-            this.camera.position.x += Math.random() * p - p/2;
-            this.camera.position.y += Math.random() * p - p/2;
-            this.camera.position.z += Math.random() * p - p/2;
-        });
-
-        this.targetColorQy.execute().forEach(e => {
-            const target = e.getOne('TargetColor');
-            const component = e.getOne('ThreeComponent');
-
-            if(target == null) return;
-            if(component == null) return;
-
-            const t = target.time / target.duration;
-            const mesh = component.mesh;
-            mesh.material.color.lerp(target.color, t);
-
-            target.time += loop.delta;
-            target.update();
-        });
+            stack.pop();
+          }
+  
+          else if (value) {
+            stack.push(value);
+          }
+  
+          else {
+            break;
+          }
+        }
       }
-}
-
-class MoveSystem extends src.System {
-    init() {
-        this.moveAlongRingQy = this.createQuery()
-            .fromAll('MoveAlongRing', 'ThreeComponent').persist();
-
-        this.moveQy = this.createQuery()
-            .fromAll('Move', 'ThreeComponent').persist();
+  
+      this._removeQueued();
     }
-
-    update() {
-        const loop = this.world.getEntity('game').getOne('GameLoop');
-
-        this.moveAlongRingQy.execute().forEach(e => {
-            const move = e.getOne('MoveAlongRing');
-            const component = e.getOne('ThreeComponent');
-            if(move == null) return;
-            if(component == null) return;
-            const mesh = component.mesh;
-
-            move.speed *= move.decay;
-            if (move.speed > 0.1) move.speed == 0.1;
-            if (move.speed < -0.1) move.speed == -0.1;
-            move.angle += move.speed;
-    
-            if (move.angle > move.max_angle)
-                move.angle -= move.max_angle;
-            if (move.angle < move.min_angle)
-                move.angle += move.max_angle;
-    
-            mesh.position.x = Math.cos(move.angle) * move.radius;
-            mesh.position.z = Math.sin(move.angle) * move.radius;
-            mesh.position.y = 2 + Math.sin(loop.time) * 2;
-            mesh.lookAt(0, 0, 0);
-            
-            move.update();
-          });
-
-          this.moveQy.execute().forEach(e => {
-            const move = e.getOne('Move');
-            const component = e.getOne('ThreeComponent');
-            if(move == null) return;
-            if(component == null) return;
-
-            const mesh = component.mesh;
-            move.velocity.y += move.gravity;
-            move.velocity = move.velocity.multiplyScalar(move.decay);
-            mesh.position.add(move.velocity);
-            mesh.rotateZ(move.tilt_angle);
-            move.update();
-          });
+  
+    _addQueued() {
+      if (this.add_queue.length) {
+        this.generator_stacks.splice(this.generator_stacks.length, 0, ...this.add_queue);
+        this.add_queue = [];
+      }
     }
-}
-
-class ControlSystem extends src.System {
-    init() {
-        this.event = null;
-        this.force = 0.008;
-        this.controllableQy = this.createQuery()
-            .fromAll('Controllable', 'MoveAlongRing');
-
-        document.addEventListener('keydown', (e) => {
-            if (e.code == 'ArrowLeft')
-                this.event = 'move_left';
-            if (e.code == 'ArrowRight')
-                this.event = 'move_right';
-        });
+  
+    _removeQueued() {
+      if (this.remove_queue.size) {
+        this.generator_stacks = this.generator_stacks.filter(
+          stack => !this.remove_queue.has(stack[0])
+        );
+        this.remove_queue.clear();
+      }
     }
-
-    update() {
-        const loop = this.world.getEntity('game').getOne('GameLoop');
-
-        this.controllableQy.execute().forEach(entity => {
-            const move = entity.getOne('MoveAlongRing');
-            
-            if (this.event == 'move_left')
-                move.speed += this.force;
-                
-            if (this.event == 'move_right')
-                move.speed -= this.force;
-        });
-
-        this.event = null;
-    }
-}
+  }
 
 var BufferGeometryUtils = {
 
@@ -48778,38 +48627,6 @@ class EntityFactory {
         });
     }
 
-    // TODO to remove
-    static createParticle(config = {}) {
-        const position = config.position || new Vector3();
-        const direction = config.direction || new Vector3();
-        const decay = config.decay || 0;
-        const tilt = config.tilt || 0;
-        const ttl = config.ttl || 1;
-        
-        this.ecs.createEntity({
-            tags: ['Particle'],
-            components: [{
-                type: 'ThreeComponent',
-                mesh: MeshFactory.createTetra(3, 0, Palette.red),
-                position: position,
-                rotation: direction,
-            }, {
-                type: 'Move',
-                velocity: direction,
-                decay: decay,
-                gravity: -0.06,
-                tilt_angle: tilt
-            },{
-                type: 'TargetColor',
-                color: new Color(Palette.light),
-                duration: ttl
-            },{
-                type: 'DeleteTimer',
-                time_left: ttl
-            }]
-        });
-    }
-
     static createBackground() {
         // asteroids
         const geoms = [];
@@ -48857,10 +48674,10 @@ class EntityFactory {
         });
     }
 
-    static createEnemies() {
+    static createEnemies(count = 3) {
         // TODO wave system
         const radius = 80;
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < count; i++) {
             // const attack_timer = Math.random() * 4;
             // const next_attack = e.attack_timer; 
             const angle = Math.random() * 2 * Math.PI;
@@ -48872,7 +48689,6 @@ class EntityFactory {
             );
 
             this.ecs.createEntity({
-                id: `enemy_${i}`,
                 tags: ['Enemy', 'Explodes'],
                 components: [{
                     type: 'ThreeComponent',
@@ -48917,7 +48733,285 @@ class EntityFactory {
         });
     }
 
+
+    static createParticleExplosion(config = {}) {
+        const position = config.position || new Vector3();
+        const time_left = config.time_left || 1;
+
+        this.ecs.createEntity({
+            components : [
+              {type: 'ThreeComponent', mesh: new Mesh(), position},
+              {type: 'DeleteTimer', time_left: 2.0},
+              {type: 'ScreenShake'},
+              EmitterFactory.createExplosion()
+            ]
+          });
+    }
     
+}
+
+class TimeSystem extends src.System {
+  init() {
+    this.runner = new CoroutineRunner();
+
+    this.subscribe('DeleteTimer');
+    this.subscribe('Destroy');
+    this.subscribe('ScreenShake');
+
+    this.runner.add(this.createEnemies(), 3);
+  }
+
+  update() {
+    const loop = this.world.getEntity('game').getOne('GameLoop');
+    this.runner.update(loop.delta);
+
+    this.changes.forEach(c => {
+      if (c.op == 'add' && c.type == 'DeleteTimer') {
+        const e = this.world.getEntity(c.entity);
+        const delay = this.world.getComponent(c.component).time_left;
+        this.runner.add(this.addDeleteComponent(e), delay);
+      }
+
+      else if (c.op == 'add' && c.type == 'Destroy') {
+        const e = this.world.getEntity(c.entity);
+        this.runner.add(this.removeEntity(e));
+      }
+
+      else if (c.op == 'add' && c.type == 'ScreenShake') {
+        const entity = this.world.getEntity(c.entity);
+        const component = this.world.getComponent(c.component);
+        const delay = component.duration;
+        this.runner.add(this.removeComponent(entity, component), delay);
+      }
+    });
+  }
+
+  *addDeleteComponent(e) {
+    e.addComponent({ type: 'Destroy' });
+  }
+
+  *removeComponent(entity, c) {
+    entity.removeComponent(c);
+  }
+
+  *removeEntity(e) {
+    this.world.removeEntity(e);
+  }
+
+  *createEnemies() {
+    // see: http://www.dabeaz.com/coroutines/Coroutines.pdf
+    for (let i = 0; i < 10; i++) {
+      EntityFactory.createEnemies(i);
+      yield this.waitEndOfWave(i);
+
+      // end of wave
+      yield this.runner.waitSeconds(2);
+    }
+    console.log('Well done!');
+  }
+
+  *waitEndOfWave(i) {
+    // check no enemies left for this wave
+    while (true) {
+      const enemies = this.world.getEntities('Enemy');
+      enemies.delete(undefined);
+      console.log(`Wave: ${i}, enemies: ${enemies.size}`);
+      if (enemies.size == 0) break;
+      yield this.runner.waitSeconds(1);
+    }
+
+  }
+}
+
+class ThreeSystem extends src.System {
+    init(threeScene) {
+        this.threeScene = threeScene;
+        this.scene = this.threeScene.scene;
+        this.camera = this.threeScene.camera;
+        this.target = new Vector3();
+
+        this.subscribe('ThreeComponent');
+        this.subscribe('Destroy');
+
+        this.updateShaderQy = this.createQuery()
+            .fromAll('ThreeComponent', 'UpdateShader');
+
+        this.cameraTargetQy = this.createQuery()
+            .fromAll('MoveAlongRing', 'CameraTarget');
+            
+        this.screenShakeQy = this.createQuery()
+            .fromAll('ThreeComponent', 'ScreenShake').persist();
+
+        this.targetColorQy = this.createQuery()
+            .fromAll('ThreeComponent', 'TargetColor').persist();
+    }
+
+    update() {
+        const loop = this.world.getEntity('game').getOne('GameLoop');
+
+        this.changes.forEach(c => {
+            if(c.op == 'add' && c.type == 'ThreeComponent') {
+                const component = this.world.getComponent(c.component);
+                const mesh = component.mesh;
+                mesh.name = component.id;
+                if(component.position != null)
+                    mesh.position.copy(component.position);
+                if(component.rotation != null)
+                    mesh.lookAt(component.rotation);
+                this.scene.add(mesh);
+            }
+
+            else if (c.op == 'add' && c.type == 'Destroy') {
+                const e = this.world.getEntity(c.entity);
+                if(e == null) return;
+                const component = e.getOne('ThreeComponent');
+                if(component == null) return;
+                // console.log(`removed mesh from ${c.entity}`);
+                const mesh = component.mesh;
+                mesh.geometry.dispose();
+                mesh.material.dispose();
+                this.scene.remove(mesh);
+                this.threeScene.renderer.renderLists.dispose();
+            }
+        });
+
+        this.updateShaderQy.execute().forEach(e => {
+            const component = e.getOne('ThreeComponent');
+            if(component == null) return;
+            component.mesh.material.uniforms['time'].value = loop.time;
+        });
+
+        this.cameraTargetQy.execute().forEach(e => {
+            const move = e.getOne('MoveAlongRing');
+            if(move == null) return;
+
+            const h = Math.abs(move.speed) * 60;
+            const r = move.radius + 20 + Math.abs(move.speed) * 50;
+            const futur_angle = move.angle + move.speed * 4;
+            // console.log(h);
+            this.camera.fov = 100 + 2*h*h;
+            this.target.y = 20 + h + Math.sin(loop.time) * 1.7;
+            this.target.x = Math.cos(futur_angle) * r;
+            this.target.z = Math.sin(futur_angle) * r;
+            
+            this.camera.position.lerp(this.target, 0.3);
+            this.camera.lookAt(0, 0, 0);
+            this.camera.updateProjectionMatrix();
+        });
+
+        this.screenShakeQy.execute().forEach(e => {
+            const screenShake = e.getOne('ScreenShake');
+            const component = e.getOne('ThreeComponent');
+
+            if(screenShake == null) return;
+            if(component == null) return;
+
+            const p = screenShake.power;
+            this.camera.position.x += Math.random() * p - p/2;
+            this.camera.position.y += Math.random() * p - p/2;
+            this.camera.position.z += Math.random() * p - p/2;
+        });
+
+        this.targetColorQy.execute().forEach(e => {
+            const target = e.getOne('TargetColor');
+            const component = e.getOne('ThreeComponent');
+
+            if(target == null) return;
+            if(component == null) return;
+
+            const t = target.time / target.duration;
+            const mesh = component.mesh;
+            mesh.material.color.lerp(target.color, t);
+
+            target.time += loop.delta;
+            target.update();
+        });
+      }
+}
+
+class MoveSystem extends src.System {
+    init() {
+        this.moveAlongRingQy = this.createQuery()
+            .fromAll('MoveAlongRing', 'ThreeComponent').persist();
+
+        this.moveQy = this.createQuery()
+            .fromAll('Move', 'ThreeComponent').persist();
+    }
+
+    update() {
+        const loop = this.world.getEntity('game').getOne('GameLoop');
+
+        this.moveAlongRingQy.execute().forEach(e => {
+            const move = e.getOne('MoveAlongRing');
+            const component = e.getOne('ThreeComponent');
+            if(move == null) return;
+            if(component == null) return;
+            const mesh = component.mesh;
+
+            move.speed *= move.decay;
+            if (move.speed > 0.1) move.speed == 0.1;
+            if (move.speed < -0.1) move.speed == -0.1;
+            move.angle += move.speed;
+    
+            if (move.angle > move.max_angle)
+                move.angle -= move.max_angle;
+            if (move.angle < move.min_angle)
+                move.angle += move.max_angle;
+    
+            mesh.position.x = Math.cos(move.angle) * move.radius;
+            mesh.position.z = Math.sin(move.angle) * move.radius;
+            mesh.position.y = 2 + Math.sin(loop.time) * 2;
+            mesh.lookAt(0, 0, 0);
+            
+            move.update();
+          });
+
+          this.moveQy.execute().forEach(e => {
+            const move = e.getOne('Move');
+            const component = e.getOne('ThreeComponent');
+            if(move == null) return;
+            if(component == null) return;
+
+            const mesh = component.mesh;
+            move.velocity.y += move.gravity;
+            move.velocity = move.velocity.multiplyScalar(move.decay);
+            mesh.position.add(move.velocity);
+            mesh.rotateZ(move.tilt_angle);
+            move.update();
+          });
+    }
+}
+
+class ControlSystem extends src.System {
+    init() {
+        this.event = null;
+        this.force = 0.008;
+        this.controllableQy = this.createQuery()
+            .fromAll('Controllable', 'MoveAlongRing');
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code == 'ArrowLeft')
+                this.event = 'move_left';
+            if (e.code == 'ArrowRight')
+                this.event = 'move_right';
+        });
+    }
+
+    update() {
+        const loop = this.world.getEntity('game').getOne('GameLoop');
+
+        this.controllableQy.execute().forEach(entity => {
+            const move = entity.getOne('MoveAlongRing');
+            
+            if (this.event == 'move_left')
+                move.speed += this.force;
+                
+            if (this.event == 'move_right')
+                move.speed -= this.force;
+        });
+
+        this.event = null;
+    }
 }
 
 class WeaponSystem extends src.System {
@@ -48991,21 +49085,6 @@ class WeaponSystem extends src.System {
   }
 }
 
-class DeleteSystem extends src.System {
-    init() {
-        this.subscribe('Destroy');
-    }
-
-    update() {
-        this.changes.forEach(c => {
-            if (c.op == 'add') {
-                // console.log(`destroy entity ${c.entity}`)
-                this.world.removeEntity(c.entity);
-            }
-        });
-    }
-}
-
 class CollisionSystem extends src.System {
   init() {
     this.colliderQy = this.createQuery()
@@ -49042,14 +49121,10 @@ class CollisionSystem extends src.System {
             // TODO add hide component
             i.addComponent({type: 'DeleteTimer', time_left: 0.2});
             
-            // TODO use entityfactory 
-            this.world.createEntity({
-              components : [
-                {type: 'ThreeComponent', mesh: new Mesh(), position: i_mesh.position},
-                {type: 'DeleteTimer', time_left: 2.0},
-                {type: 'ScreenShake'},
-                EmitterFactory.createExplosion()
-              ]
+            // create an explosion 
+            EntityFactory.createParticleExplosion({
+              position: i_mesh.position,
+              time_left: 2
             });
           }
         }
@@ -49068,7 +49143,6 @@ class ParticlesSystem extends src.System {
     init(threeScene) {
         this.threeScene = threeScene;
         this.scene = this.threeScene.scene;
-        this.subscribe('ParticlesEmitter');
         this.subscribe('Trail');
 
         this.trailQy = this.createQuery()
@@ -49082,43 +49156,7 @@ class ParticlesSystem extends src.System {
         const loop = this.world.getEntity('game').getOne('GameLoop');
 
         this.changes.forEach(c => {
-            if (c.op == 'add' && c.type == 'ParticlesEmitter') {
-                // TODO remove
-                const entity = this.world.getEntity(c.entity);
-                const emitter = this.world.getComponent(c.component);
-                const three = entity.getOne('ThreeComponent');
-
-                // no position, so ... no position to start emit
-                if (three == null) return;
-
-                // here come particles ...
-                const mesh = three.mesh;
-                for (let i = 0; i < emitter.particles; i++) {
-                    const tilt = Math.random() * 0.1;
-                    const decay = Math.random() * 0.1 + 0.9;
-                    const ttl = Math.random() + 1.5;
-                    // angle on ground plane
-                    const velocity = 3.5;
-                    const xz_angle = Math.random() * 2 * Math.PI;
-                    // start position 
-                    const position = mesh.position;
-                    // direction
-                    const direction = new Vector3(
-                        Math.cos(xz_angle) * velocity,
-                        velocity,
-                        Math.sin(xz_angle) * velocity
-                    );
-                    // creation
-                    EntityFactory.createParticle({
-                        position,
-                        direction,
-                        decay,
-                        tilt,
-                        ttl
-                    });
-                }
-            }
-            else if (c.op == 'add' && c.type == 'Trail') {
+            if (c.op == 'add' && c.type == 'Trail') {
                 const e = this.world.getEntity(c.entity);
                 if (e == null) return;
                 const trail = this.world.getComponent(c.component);
@@ -49169,7 +49207,7 @@ class ParticlesSystem extends src.System {
 
             attributes.angle.needsUpdate = true;
             attributes.hidden.needsUpdate = true;
-            
+
             // TODO
             attributes.position.needsUpdate = true;
             attributes.velocity.needsUpdate = (trail.decay > 0);
@@ -49247,9 +49285,9 @@ class ParticlesSystem extends src.System {
         trail.max_count = count;
 
         // convert color
-        if(Number.isInteger(trail.color_start))
+        if (Number.isInteger(trail.color_start))
             trail.color_start = new Color(trail.color_start);
-        if(Number.isInteger(trail.color_end))
+        if (Number.isInteger(trail.color_end))
             trail.color_end = new Color(trail.color_end);
 
         // tmp vars
@@ -49258,7 +49296,7 @@ class ParticlesSystem extends src.System {
         // insert data in arrays
         const attributes = emitter.geometry.attributes;
         for (let i = 0; i < count; i++) {
-            this.createParticle(i, trail, attributes, i>=visibles);
+            this.createParticle(i, trail, attributes, i >= visibles);
         }
         return emitter;
     }
@@ -49267,7 +49305,7 @@ class ParticlesSystem extends src.System {
         trail.age[i] = 0;
         attributes.hidden.array[i] = hidden;
         attributes.angle.array[i] = Math.random() * Math.PI * 2;
-        
+
         attributes.size.array[i] = Math.random() * trail.size_start + trail.size_start;
 
 
@@ -49299,7 +49337,7 @@ class ParticlesSystem extends src.System {
             attributes.hidden.array[i] = 1;
 
         // is hidden ? 
-        if(attributes.hidden.array[i] == 1)
+        if (attributes.hidden.array[i] == 1)
             return;
 
         // angle
@@ -49307,33 +49345,34 @@ class ParticlesSystem extends src.System {
 
         // size
         if (trail.size_tween == true) {
-            attributes.size.array[i] = 
-            trail.size_end + t * (trail.size_start - trail.size_end);
+            attributes.size.array[i] =
+                trail.size_end + t * (trail.size_start - trail.size_end);
         }
 
         // color
         if (trail.color_tween == true) {
             const c = trail.color_end.clone().lerp(trail.color_start, t);
-            attributes.color.array.set(c.toArray(), i * 3); 
+            attributes.color.array.set(c.toArray(), i * 3);
         }
 
         // position
         if (attributes.velocity != null) {
-            attributes.position.array[i * 3 + 0] += 
-            attributes.velocity.array[i * 3 + 0];
-            
-            attributes.position.array[i * 3 + 1] += 
-            attributes.velocity.array[i * 3 + 1];
-            
-            attributes.position.array[i * 3 + 2] += 
-            attributes.velocity.array[i * 3 + 2];
+            attributes.position.array[i * 3 + 0] +=
+                attributes.velocity.array[i * 3 + 0];
+
+            attributes.position.array[i * 3 + 1] +=
+                attributes.velocity.array[i * 3 + 1];
+
+            attributes.position.array[i * 3 + 2] +=
+                attributes.velocity.array[i * 3 + 2];
         }
 
         // velocities
-        if(trail.decay) {
+        if (trail.decay) {
             attributes.velocity.array[i * 3 + 0] *= trail.decay;
             attributes.velocity.array[i * 3 + 1] *= trail.decay;
-            attributes.velocity.array[i * 3 + 2] *= trail.decay;    
+            attributes.velocity.array[i * 3 + 1] -= 0.07;
+            attributes.velocity.array[i * 3 + 2] *= trail.decay;
         }
     }
 
@@ -51902,7 +51941,7 @@ class App {
         this.ts = new ThreeScene();
         this.ecs = new src.World();
         EntityFactory.init(this.ecs);
-        
+
         // components
         this.ecs.registerComponent(GameLoop);
         this.ecs.registerComponent(Destroy);
@@ -51913,13 +51952,12 @@ class App {
         this.ecs.registerComponent(Move);
         this.ecs.registerComponent(Weapon);
         this.ecs.registerComponent(Collider);
-        this.ecs.registerComponent(ParticlesEmitter);
         this.ecs.registerComponent(TargetColor);
         this.ecs.registerComponent(Trail);
-        
+
         // tags
         this.ecs.registerTags(
-            'UpdateShader', 
+            'UpdateShader',
             'Controllable', 'CameraTarget',
             'Bullet', 'Enemy', 'Particle',
             'Explodes'
@@ -51933,7 +51971,6 @@ class App {
         this.ecs.registerSystem('frame', MoveSystem);
         this.ecs.registerSystem('frame', CollisionSystem);
         this.ecs.registerSystem('frame', ThreeSystem, [this.ts]);
-        this.ecs.registerSystem('frame', DeleteSystem);
 
         // create entities
         EntityFactory.createGameLoop();
@@ -51953,7 +51990,7 @@ class App {
         let delta = (time - this.lastTime);
         delta = Math.min(delta, 0.1);
         this.lastTime = time;
-        this.ecs.getEntity('game').getOne('GameLoop').update({time, delta});
+        this.ecs.getEntity('game').getOne('GameLoop').update({ time, delta });
 
         this.ecs.runSystems('frame');
         this.ecs.tick();

@@ -119,38 +119,6 @@ export default class EntityFactory {
         });
     }
 
-    // TODO to remove
-    static createParticle(config = {}) {
-        const position = config.position || new Vector3();
-        const direction = config.direction || new Vector3();
-        const decay = config.decay || 0;
-        const tilt = config.tilt || 0;
-        const ttl = config.ttl || 1;
-        
-        this.ecs.createEntity({
-            tags: ['Particle'],
-            components: [{
-                type: 'ThreeComponent',
-                mesh: MeshFactory.createTetra(3, 0, Palette.red),
-                position: position,
-                rotation: direction,
-            }, {
-                type: 'Move',
-                velocity: direction,
-                decay: decay,
-                gravity: -0.06,
-                tilt_angle: tilt
-            },{
-                type: 'TargetColor',
-                color: new Color(Palette.light),
-                duration: ttl
-            },{
-                type: 'DeleteTimer',
-                time_left: ttl
-            }]
-        });
-    }
-
     static createBackground() {
         // asteroids
         const geoms = [];
@@ -198,10 +166,10 @@ export default class EntityFactory {
         });
     }
 
-    static createEnemies() {
+    static createEnemies(count = 3) {
         // TODO wave system
         const radius = 80;
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < count; i++) {
             // const attack_timer = Math.random() * 4;
             // const next_attack = e.attack_timer; 
             const angle = Math.random() * 2 * Math.PI;
@@ -213,7 +181,6 @@ export default class EntityFactory {
             );
 
             this.ecs.createEntity({
-                id: `enemy_${i}`,
                 tags: ['Enemy', 'Explodes'],
                 components: [{
                     type: 'ThreeComponent',
@@ -258,5 +225,19 @@ export default class EntityFactory {
         });
     }
 
+
+    static createParticleExplosion(config = {}) {
+        const position = config.position || new Vector3();
+        const time_left = config.time_left || 1;
+
+        this.ecs.createEntity({
+            components : [
+              {type: 'ThreeComponent', mesh: new Mesh(), position},
+              {type: 'DeleteTimer', time_left: 2.0},
+              {type: 'ScreenShake'},
+              EmitterFactory.createExplosion()
+            ]
+          })
+    }
     
 }

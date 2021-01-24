@@ -8,7 +8,6 @@ export default class ParticlesSystem extends System {
     init(threeScene) {
         this.threeScene = threeScene;
         this.scene = this.threeScene.scene;
-        this.subscribe('ParticlesEmitter');
         this.subscribe('Trail');
 
         this.trailQy = this.createQuery()
@@ -22,43 +21,7 @@ export default class ParticlesSystem extends System {
         const loop = this.world.getEntity('game').getOne('GameLoop');
 
         this.changes.forEach(c => {
-            if (c.op == 'add' && c.type == 'ParticlesEmitter') {
-                // TODO remove
-                const entity = this.world.getEntity(c.entity);
-                const emitter = this.world.getComponent(c.component);
-                const three = entity.getOne('ThreeComponent');
-
-                // no position, so ... no position to start emit
-                if (three == null) return;
-
-                // here come particles ...
-                const mesh = three.mesh;
-                for (let i = 0; i < emitter.particles; i++) {
-                    const tilt = Math.random() * 0.1;
-                    const decay = Math.random() * 0.1 + 0.9;
-                    const ttl = Math.random() + 1.5;
-                    // angle on ground plane
-                    const velocity = 3.5;
-                    const xz_angle = Math.random() * 2 * Math.PI;
-                    // start position 
-                    const position = mesh.position;
-                    // direction
-                    const direction = new Vector3(
-                        Math.cos(xz_angle) * velocity,
-                        velocity,
-                        Math.sin(xz_angle) * velocity
-                    )
-                    // creation
-                    EntityFactory.createParticle({
-                        position,
-                        direction,
-                        decay,
-                        tilt,
-                        ttl
-                    })
-                }
-            }
-            else if (c.op == 'add' && c.type == 'Trail') {
+            if (c.op == 'add' && c.type == 'Trail') {
                 const e = this.world.getEntity(c.entity);
                 if (e == null) return;
                 const trail = this.world.getComponent(c.component);
@@ -109,7 +72,7 @@ export default class ParticlesSystem extends System {
 
             attributes.angle.needsUpdate = true;
             attributes.hidden.needsUpdate = true;
-            
+
             // TODO
             attributes.position.needsUpdate = true;
             attributes.velocity.needsUpdate = (trail.decay > 0);
@@ -187,9 +150,9 @@ export default class ParticlesSystem extends System {
         trail.max_count = count;
 
         // convert color
-        if(Number.isInteger(trail.color_start))
+        if (Number.isInteger(trail.color_start))
             trail.color_start = new Color(trail.color_start)
-        if(Number.isInteger(trail.color_end))
+        if (Number.isInteger(trail.color_end))
             trail.color_end = new Color(trail.color_end)
 
         // tmp vars
@@ -198,7 +161,7 @@ export default class ParticlesSystem extends System {
         // insert data in arrays
         const attributes = emitter.geometry.attributes;
         for (let i = 0; i < count; i++) {
-            this.createParticle(i, trail, attributes, i>=visibles);
+            this.createParticle(i, trail, attributes, i >= visibles);
         }
         return emitter;
     }
@@ -207,7 +170,7 @@ export default class ParticlesSystem extends System {
         trail.age[i] = 0;
         attributes.hidden.array[i] = hidden;
         attributes.angle.array[i] = Math.random() * Math.PI * 2;
-        
+
         attributes.size.array[i] = Math.random() * trail.size_start + trail.size_start;
 
 
@@ -239,7 +202,7 @@ export default class ParticlesSystem extends System {
             attributes.hidden.array[i] = 1;
 
         // is hidden ? 
-        if(attributes.hidden.array[i] == 1)
+        if (attributes.hidden.array[i] == 1)
             return;
 
         // angle
@@ -247,33 +210,34 @@ export default class ParticlesSystem extends System {
 
         // size
         if (trail.size_tween == true) {
-            attributes.size.array[i] = 
-            trail.size_end + t * (trail.size_start - trail.size_end)
+            attributes.size.array[i] =
+                trail.size_end + t * (trail.size_start - trail.size_end)
         }
 
         // color
         if (trail.color_tween == true) {
             const c = trail.color_end.clone().lerp(trail.color_start, t);
-            attributes.color.array.set(c.toArray(), i * 3); 
+            attributes.color.array.set(c.toArray(), i * 3);
         }
 
         // position
         if (attributes.velocity != null) {
-            attributes.position.array[i * 3 + 0] += 
-            attributes.velocity.array[i * 3 + 0];
-            
-            attributes.position.array[i * 3 + 1] += 
-            attributes.velocity.array[i * 3 + 1];
-            
-            attributes.position.array[i * 3 + 2] += 
-            attributes.velocity.array[i * 3 + 2];
+            attributes.position.array[i * 3 + 0] +=
+                attributes.velocity.array[i * 3 + 0];
+
+            attributes.position.array[i * 3 + 1] +=
+                attributes.velocity.array[i * 3 + 1];
+
+            attributes.position.array[i * 3 + 2] +=
+                attributes.velocity.array[i * 3 + 2];
         }
 
         // velocities
-        if(trail.decay) {
+        if (trail.decay) {
             attributes.velocity.array[i * 3 + 0] *= trail.decay;
             attributes.velocity.array[i * 3 + 1] *= trail.decay;
-            attributes.velocity.array[i * 3 + 2] *= trail.decay;    
+            attributes.velocity.array[i * 3 + 1] -= 0.07;
+            attributes.velocity.array[i * 3 + 2] *= trail.decay;
         }
     }
 
