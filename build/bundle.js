@@ -33071,6 +33071,153 @@ function toJSON$3( shapes, data ) {
 
 }
 
+class SphereBufferGeometry extends BufferGeometry {
+
+	constructor( radius, widthSegments, heightSegments, phiStart, phiLength, thetaStart, thetaLength ) {
+
+		super();
+		this.type = 'SphereBufferGeometry';
+
+		this.parameters = {
+			radius: radius,
+			widthSegments: widthSegments,
+			heightSegments: heightSegments,
+			phiStart: phiStart,
+			phiLength: phiLength,
+			thetaStart: thetaStart,
+			thetaLength: thetaLength
+		};
+
+		radius = radius || 1;
+
+		widthSegments = Math.max( 3, Math.floor( widthSegments ) || 8 );
+		heightSegments = Math.max( 2, Math.floor( heightSegments ) || 6 );
+
+		phiStart = phiStart !== undefined ? phiStart : 0;
+		phiLength = phiLength !== undefined ? phiLength : Math.PI * 2;
+
+		thetaStart = thetaStart !== undefined ? thetaStart : 0;
+		thetaLength = thetaLength !== undefined ? thetaLength : Math.PI;
+
+		const thetaEnd = Math.min( thetaStart + thetaLength, Math.PI );
+
+		let index = 0;
+		const grid = [];
+
+		const vertex = new Vector3();
+		const normal = new Vector3();
+
+		// buffers
+
+		const indices = [];
+		const vertices = [];
+		const normals = [];
+		const uvs = [];
+
+		// generate vertices, normals and uvs
+
+		for ( let iy = 0; iy <= heightSegments; iy ++ ) {
+
+			const verticesRow = [];
+
+			const v = iy / heightSegments;
+
+			// special case for the poles
+
+			let uOffset = 0;
+
+			if ( iy == 0 && thetaStart == 0 ) {
+
+				uOffset = 0.5 / widthSegments;
+
+			} else if ( iy == heightSegments && thetaEnd == Math.PI ) {
+
+				uOffset = - 0.5 / widthSegments;
+
+			}
+
+			for ( let ix = 0; ix <= widthSegments; ix ++ ) {
+
+				const u = ix / widthSegments;
+
+				// vertex
+
+				vertex.x = - radius * Math.cos( phiStart + u * phiLength ) * Math.sin( thetaStart + v * thetaLength );
+				vertex.y = radius * Math.cos( thetaStart + v * thetaLength );
+				vertex.z = radius * Math.sin( phiStart + u * phiLength ) * Math.sin( thetaStart + v * thetaLength );
+
+				vertices.push( vertex.x, vertex.y, vertex.z );
+
+				// normal
+
+				normal.copy( vertex ).normalize();
+				normals.push( normal.x, normal.y, normal.z );
+
+				// uv
+
+				uvs.push( u + uOffset, 1 - v );
+
+				verticesRow.push( index ++ );
+
+			}
+
+			grid.push( verticesRow );
+
+		}
+
+		// indices
+
+		for ( let iy = 0; iy < heightSegments; iy ++ ) {
+
+			for ( let ix = 0; ix < widthSegments; ix ++ ) {
+
+				const a = grid[ iy ][ ix + 1 ];
+				const b = grid[ iy ][ ix ];
+				const c = grid[ iy + 1 ][ ix ];
+				const d = grid[ iy + 1 ][ ix + 1 ];
+
+				if ( iy !== 0 || thetaStart > 0 ) indices.push( a, b, d );
+				if ( iy !== heightSegments - 1 || thetaEnd < Math.PI ) indices.push( b, c, d );
+
+			}
+
+		}
+
+		// build geometry
+
+		this.setIndex( indices );
+		this.setAttribute( 'position', new Float32BufferAttribute( vertices, 3 ) );
+		this.setAttribute( 'normal', new Float32BufferAttribute( normals, 3 ) );
+		this.setAttribute( 'uv', new Float32BufferAttribute( uvs, 2 ) );
+
+	}
+
+}
+
+class SphereGeometry extends Geometry {
+
+	constructor( radius, widthSegments, heightSegments, phiStart, phiLength, thetaStart, thetaLength ) {
+
+		super();
+		this.type = 'SphereGeometry';
+
+		this.parameters = {
+			radius: radius,
+			widthSegments: widthSegments,
+			heightSegments: heightSegments,
+			phiStart: phiStart,
+			phiLength: phiLength,
+			thetaStart: thetaStart,
+			thetaLength: thetaLength
+		};
+
+		this.fromBufferGeometry( new SphereBufferGeometry( radius, widthSegments, heightSegments, phiStart, phiLength, thetaStart, thetaLength ) );
+		this.mergeVertices();
+
+	}
+
+}
+
 class TetrahedronBufferGeometry extends PolyhedronBufferGeometry {
 
 	constructor( radius, detail ) {
@@ -47230,7 +47377,7 @@ class Collider extends src.Component {
 }
 
 class Palette {
-    static debug_color = 0x00ff00;
+    static debug_color = 0x88ff00;
 
     static light = 0xffebf3;
     static grey = 0x805489;
@@ -47238,6 +47385,7 @@ class Palette {
 
     static yellow = 0xf7cb01;
 
+    static purple = 0xa14ed9; 
     static pink = 0xf700ff;
     static red = 0xf73201; 
     static dark_red = 0xc41c01;
@@ -48275,18 +48423,23 @@ class MeshFactory {
         return mesh;
     }
 
-    static createRing(outerRadius = 1.0,
-        width = 1.0,
-        color = Palette.light,
-        position = new Vector3()) {
+    static createRing(config = {}) {
+        const outer_radius = config.outer_radius || 1.0;
+        const width = config.width || 1.0;
+        const color = config.color || Palette.debug_color;
+        const position = config.position || new Vector3();
+        
         const geometry = new RingGeometry(
-            outerRadius - width,
-            outerRadius,
+            outer_radius - width,
+            outer_radius,
             60, // segments largeur
-            1); // segments profondeur
+            1 // segments profondeur
+        );
+
         const material = new MeshBasicMaterial({
-            color: color
+            color
         });
+
         const mesh = new Mesh(geometry, material);
         mesh.position.copy(position);
         mesh.rotation.x = -Math.PI / 2;
@@ -48387,6 +48540,36 @@ class MeshFactory {
             radiusBottom,
             height,
             radialSegments
+        );
+
+        const material = new MeshBasicMaterial({
+            color
+        });
+
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+
+        return mesh;
+    }
+
+    static createSphere(config = {}) {
+        const radius = config.radius || 4;
+        const width_segs = config.width_segs || 8;
+        const height_segs = config.height_segs || 8;
+        const theta_start = config.theta_start || 0;
+        const theta_length = config.theta_length || Math.PI;
+        
+        const color = config.color || Palette.debug_color;
+        const position = config.position || new Vector3();
+
+        var geometry = new SphereGeometry(
+            radius,
+            width_segs,
+            height_segs,
+            0,
+            Math.PI * 2,
+            theta_start,
+            theta_length
         );
 
         const material = new MeshBasicMaterial({
@@ -48522,6 +48705,99 @@ class MeshFactory {
         return group;
     }
 
+    static createSaucer(config = {}) {
+        const body_color = config.body_color || Palette.light;
+        const line_color = config.line_color || Palette.purple;
+        const cockpit_color = config.cockpit_color || Palette.light_blue;
+
+        const position = config.position || new Vector3();
+
+        const mesh = new Mesh();
+
+        const body = MeshFactory.createCylinder({
+            radiusTop: 13,
+            radiusBottom: 4,
+            height: 2.5,
+            radialSegments: 8,
+            color: body_color,
+            position: new Vector3(0, -1.5, 0)
+        });
+
+        mesh.add(body);
+
+        const cockpit = MeshFactory.createSphere({
+            radius: 4,
+            width_segs: 8,
+            height_segs: 2,
+            theta_length: 1.5,
+            color: cockpit_color,
+            position: new Vector3(0, 0, 0)
+        });
+        mesh.add(cockpit);
+
+        const line = MeshFactory.createCylinder({
+            radiusTop: 4,
+            radiusBottom: 14,
+            height: 1,
+            radialSegments: 8,
+            color: line_color,
+            position: new Vector3(0, -.5, 0)
+        });
+        mesh.add(line);
+
+        const n = 6;
+        const radius = 9;
+        const angle = 2 * Math.PI / n;
+        for(let i=0; i<n; i++) {
+            const x = radius * Math.cos(i * angle);
+            const z = radius * Math.sin(i * angle);
+            const hole = MeshFactory.createCylinder({
+                radiusTop: 1,
+                radiusBottom: 1.5,
+                height: 1,
+                radialSegments: 6,
+                color: line_color,
+                position: new Vector3(x, 0.5, z)
+            });
+            mesh.add(hole);
+        }
+
+        // construction
+        mesh.position.copy(position);
+        return mesh;
+    }
+
+    static createShip1(config = {}) {
+        const body_color = config.body_color || Palette.light;
+        const line_color = config.line_color || Palette.dark;
+        const cockpit_color = config.cockpit_color || Palette.light_blue;
+
+        const position = config.position || new Vector3();
+
+        const mesh = new Mesh();
+        
+        const body_a = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 0,
+            height: 5,
+            radialSegments: 3,
+            color: Palette.body_color,
+            position: new Vector3(0, 0, 1.5)
+        });
+
+        mesh.add(body_a);
+
+        const body_b = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 0,
+            height: 5,
+            radialSegments: 3,
+            color: Palette.body_color,
+            position: new Vector3(0, 0, -1.5)
+        });
+        mesh.rotate(new Vector3(1, 0, 1), Math.PI);
+        mesh.add(body_b);
+    }
 }
 
 class EntityFactory {
@@ -48570,7 +48846,11 @@ class EntityFactory {
             id: 'ring1',
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createRing(80, 3, Palette.dark_red)
+                mesh: MeshFactory.createRing({
+                    outer_radius: 80,
+                    width: 3,
+                    color: Palette.dark_red
+                })
             }]
         });
 
@@ -48578,13 +48858,16 @@ class EntityFactory {
             id: 'ring2',
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createRing(160, 0.5, Palette.dark_red)
+                mesh: MeshFactory.createRing({
+                    outer_radius: 80,
+                    width: 3,
+                    color: Palette.dark_red
+                })
             }]
         });
     }
 
     static createPlayer() {
-
         const mesh = MeshFactory.createSpaceShip();
 
         this.ecs.createEntity({
@@ -48693,6 +48976,7 @@ class EntityFactory {
 
     static createEnemies(count = 3) {
         // TODO wave system
+
         const radius = 80;
         for (let i = 0; i < count; i++) {
             // const attack_timer = Math.random() * 4;
@@ -48705,15 +48989,21 @@ class EntityFactory {
                 Math.sin(angle) * radius
             );
 
+            let mesh = null;    
+            if (Math.random() < 0.9)
+                mesh = MeshFactory.createTetra({
+                    radius: size,
+                    detail: 1,
+                    color: Palette.red
+                });
+            else 
+                mesh = MeshFactory.createSaucer();
+                
             this.ecs.createEntity({
                 tags: ['Enemy', 'Explodes'],
                 components: [{
                     type: 'ThreeComponent',
-                    mesh: MeshFactory.createTetra({
-                        radius: size,
-                        detail: 1,
-                        color: Palette.red
-                    }),
+                    mesh,
                     position: position
                 }, {
                     type: 'MoveAlongRing',
@@ -48736,15 +49026,15 @@ class EntityFactory {
             Math.sin(angle) * radius
         );
 
+        const mesh = MeshFactory.createSaucer();
+
         this.ecs.createEntity({
             id: 'enemy_test',
             tags: ['Enemy', 'Explodes'],
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createTetra({
-                    radius: 12
-                }),
-                position: position
+                position: position,
+                mesh
             }, {
                 type: 'MoveAlongRing',
                 radius,

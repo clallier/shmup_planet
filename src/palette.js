@@ -1,5 +1,5 @@
 export default class Palette {
-    static debug_color = 0x00ff00;
+    static debug_color = 0x88ff00;
 
     static light = 0xffebf3;
     static grey = 0x805489;
@@ -7,6 +7,7 @@ export default class Palette {
 
     static yellow = 0xf7cb01;
 
+    static purple = 0xa14ed9; 
     static pink = 0xf700ff;
     static red = 0xf73201; 
     static dark_red = 0xc41c01;

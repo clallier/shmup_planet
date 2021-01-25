@@ -50,7 +50,11 @@ export default class EntityFactory {
             id: 'ring1',
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createRing(80, 3, Palette.dark_red)
+                mesh: MeshFactory.createRing({
+                    outer_radius: 80,
+                    width: 3,
+                    color: Palette.dark_red
+                })
             }]
         });
 
@@ -58,13 +62,16 @@ export default class EntityFactory {
             id: 'ring2',
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createRing(160, 0.5, Palette.dark_red)
+                mesh: MeshFactory.createRing({
+                    outer_radius: 80,
+                    width: 3,
+                    color: Palette.dark_red
+                })
             }]
         });
     }
 
     static createPlayer() {
-
         const mesh = MeshFactory.createSpaceShip();
 
         this.ecs.createEntity({
@@ -173,6 +180,7 @@ export default class EntityFactory {
 
     static createEnemies(count = 3) {
         // TODO wave system
+
         const radius = 80;
         for (let i = 0; i < count; i++) {
             // const attack_timer = Math.random() * 4;
@@ -185,15 +193,21 @@ export default class EntityFactory {
                 Math.sin(angle) * radius
             );
 
+            let mesh = null;    
+            if (Math.random() < 0.9)
+                mesh = MeshFactory.createTetra({
+                    radius: size,
+                    detail: 1,
+                    color: Palette.red
+                })
+            else 
+                mesh = MeshFactory.createSaucer()
+                
             this.ecs.createEntity({
                 tags: ['Enemy', 'Explodes'],
                 components: [{
                     type: 'ThreeComponent',
-                    mesh: MeshFactory.createTetra({
-                        radius: size,
-                        detail: 1,
-                        color: Palette.red
-                    }),
+                    mesh,
                     position: position
                 }, {
                     type: 'MoveAlongRing',
@@ -216,15 +230,15 @@ export default class EntityFactory {
             Math.sin(angle) * radius
         );
 
+        const mesh = MeshFactory.createSaucer();
+
         this.ecs.createEntity({
             id: 'enemy_test',
             tags: ['Enemy', 'Explodes'],
             components: [{
                 type: 'ThreeComponent',
-                mesh: MeshFactory.createTetra({
-                    radius: 12
-                }),
-                position: position
+                position: position,
+                mesh
             }, {
                 type: 'MoveAlongRing',
                 radius,

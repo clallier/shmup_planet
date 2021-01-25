@@ -3,7 +3,7 @@ import {
     IcosahedronGeometry, RingGeometry, TetrahedronGeometry, BoxGeometry,
     ShaderMaterial, MeshBasicMaterial,
     Points, CylinderGeometry,
-    BufferGeometry, BufferAttribute,
+    BufferGeometry, BufferAttribute, SphereGeometry,
 } from "three";
 import Palette from './palette'
 import CanvasFactory from "./canvasfactory";
@@ -33,18 +33,23 @@ export default class MeshFactory {
         return mesh;
     }
 
-    static createRing(outerRadius = 1.0,
-        width = 1.0,
-        color = Palette.light,
-        position = new Vector3()) {
+    static createRing(config = {}) {
+        const outer_radius = config.outer_radius || 1.0;
+        const width = config.width || 1.0;
+        const color = config.color || Palette.debug_color;
+        const position = config.position || new Vector3();
+        
         const geometry = new RingGeometry(
-            outerRadius - width,
-            outerRadius,
+            outer_radius - width,
+            outer_radius,
             60, // segments largeur
-            1); // segments profondeur
+            1 // segments profondeur
+        );
+
         const material = new MeshBasicMaterial({
-            color: color
+            color
         });
+
         const mesh = new Mesh(geometry, material);
         mesh.position.copy(position);
         mesh.rotation.x = -Math.PI / 2;
@@ -145,6 +150,36 @@ export default class MeshFactory {
             radiusBottom,
             height,
             radialSegments
+        );
+
+        const material = new MeshBasicMaterial({
+            color
+        });
+
+        const mesh = new Mesh(geometry, material);
+        mesh.position.copy(position);
+
+        return mesh;
+    }
+
+    static createSphere(config = {}) {
+        const radius = config.radius || 4;
+        const width_segs = config.width_segs || 8;
+        const height_segs = config.height_segs || 8;
+        const theta_start = config.theta_start || 0;
+        const theta_length = config.theta_length || Math.PI;
+        
+        const color = config.color || Palette.debug_color;
+        const position = config.position || new Vector3();
+
+        var geometry = new SphereGeometry(
+            radius,
+            width_segs,
+            height_segs,
+            0,
+            Math.PI * 2,
+            theta_start,
+            theta_length
         );
 
         const material = new MeshBasicMaterial({
@@ -280,4 +315,97 @@ export default class MeshFactory {
         return group;
     }
 
+    static createSaucer(config = {}) {
+        const body_color = config.body_color || Palette.light;
+        const line_color = config.line_color || Palette.purple;
+        const cockpit_color = config.cockpit_color || Palette.light_blue;
+
+        const position = config.position || new Vector3();
+
+        const mesh = new Mesh();
+
+        const body = MeshFactory.createCylinder({
+            radiusTop: 13,
+            radiusBottom: 4,
+            height: 2.5,
+            radialSegments: 8,
+            color: body_color,
+            position: new Vector3(0, -1.5, 0)
+        });
+
+        mesh.add(body)
+
+        const cockpit = MeshFactory.createSphere({
+            radius: 4,
+            width_segs: 8,
+            height_segs: 2,
+            theta_length: 1.5,
+            color: cockpit_color,
+            position: new Vector3(0, 0, 0)
+        });
+        mesh.add(cockpit);
+
+        const line = MeshFactory.createCylinder({
+            radiusTop: 4,
+            radiusBottom: 14,
+            height: 1,
+            radialSegments: 8,
+            color: line_color,
+            position: new Vector3(0, -.5, 0)
+        });
+        mesh.add(line);
+
+        const n = 6;
+        const radius = 9;
+        const angle = 2 * Math.PI / n;
+        for(let i=0; i<n; i++) {
+            const x = radius * Math.cos(i * angle);
+            const z = radius * Math.sin(i * angle);
+            const hole = MeshFactory.createCylinder({
+                radiusTop: 1,
+                radiusBottom: 1.5,
+                height: 1,
+                radialSegments: 6,
+                color: line_color,
+                position: new Vector3(x, 0.5, z)
+            });
+            mesh.add(hole);
+        }
+
+        // construction
+        mesh.position.copy(position);
+        return mesh;
+    }
+
+    static createShip1(config = {}) {
+        const body_color = config.body_color || Palette.light;
+        const line_color = config.line_color || Palette.dark;
+        const cockpit_color = config.cockpit_color || Palette.light_blue;
+
+        const position = config.position || new Vector3();
+
+        const mesh = new Mesh();
+        
+        const body_a = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 0,
+            height: 5,
+            radialSegments: 3,
+            color: Palette.body_color,
+            position: new Vector3(0, 0, 1.5)
+        });
+
+        mesh.add(body_a)
+
+        const body_b = MeshFactory.createCylinder({
+            radiusTop: 2,
+            radiusBottom: 0,
+            height: 5,
+            radialSegments: 3,
+            color: Palette.body_color,
+            position: new Vector3(0, 0, -1.5)
+        });
+        mesh.rotate(new Vector3(1, 0, 1), Math.PI);
+        mesh.add(body_b)
+    }
 }
