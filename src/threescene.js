@@ -23,13 +23,15 @@ export default class ThreeScene {
         // this.renderer.shadowMap.type = PCFSoftShadowMap;
         this.renderer.setClearColor(Palette.dark, 1);
         // camera
+        this.fov = 50;
         this.camera = new PerspectiveCamera(100, 2, 0.1, 1000);
         this.camera.position.x = 0;
         this.camera.position.y = 15;
         this.camera.position.z = 200;
+        this.camera.fov = this.fov;
         // camera default control
         this.control = new OrbitControls(this.camera, this.canvas);
-        this.control.enabled = true;
+        this.control.enabled = false;
         // scene
         this.scene = new Scene();
         
@@ -71,6 +73,13 @@ export default class ThreeScene {
         const height = canvas.clientHeight;
         if (canvas.width !== width || canvas.height !== height) {
             this.camera.aspect = width / height;
+
+            let fov = 50 / this.camera.aspect + 20;
+            fov = Math.max(50, fov);
+            fov = Math.min(100, fov);
+            this.fov = fov;
+
+            this.camera.fov = this.fov;
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(width, height, false);
             this.composer.setSize(width, height);

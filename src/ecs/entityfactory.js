@@ -83,25 +83,28 @@ export default class EntityFactory {
             }, {
                 type: 'MoveAlongRing',
                 radius: 160,
-                angle: Math.PI / 2,
-                decay: 0.96
+                force : 10,
+                max_velocity : 3,
+                decay: 0.94
             }, {
                 type: 'Weapon'
-            }]
+            },
+            EmitterFactory.createTrail(.5)
+            ]
         });
     }
 
     static createBullet(type, position, direction) {
         let mesh = null;
         if (type == 'bullet')
-            mesh = MeshFactory.createBox({
-                width: 4,
-                height: 4,
-                depth: 4,
+            mesh = MeshFactory.createTetra({
+                radius: 4,
                 color: Palette.dark_blue
             });
         else
             console.warn('unknown bullet type');
+
+        const velocity = direction.clone().multiplyScalar(100); // 200u/s
 
         this.ecs.createEntity({
             tags: ['Bullet'],
@@ -112,11 +115,13 @@ export default class EntityFactory {
                 rotation: direction.clone(),
             }, {
                 type: 'Move',
-                velocity: direction.clone().multiplyScalar(2)
+                velocity,
+                tilt_angle: 0.1
             }, {
-                type: 'TargetColor',
-                color: new Color(Palette.light),
-                duration: 0.8
+                type: 'TweenColor',
+                start: new Color(Palette.red),
+                end: new Color(Palette.light),
+                duration: 0.4
             }, {
                 type: 'DeleteTimer',
                 time_left: 0.8
@@ -124,9 +129,7 @@ export default class EntityFactory {
                 type: 'Collider',
                 against: 'Enemy'
             },
-            EmitterFactory.createTrail(
-                direction.clone().multiplyScalar(-2)
-            )
+            EmitterFactory.createTrail()
             ]
         });
     }
@@ -193,16 +196,16 @@ export default class EntityFactory {
                 Math.sin(angle) * radius
             );
 
-            let mesh = null;    
+            let mesh = null;
             if (Math.random() < 0.9)
                 mesh = MeshFactory.createTetra({
                     radius: size,
                     detail: 1,
                     color: Palette.red
                 })
-            else 
+            else
                 mesh = MeshFactory.createSaucer()
-                
+
             this.ecs.createEntity({
                 tags: ['Enemy', 'Explodes'],
                 components: [{
@@ -213,7 +216,6 @@ export default class EntityFactory {
                     type: 'MoveAlongRing',
                     radius: radius,
                     angle: angle,
-                    speed: 0
                 }, {
                     type: 'Collider'
                 }]
@@ -242,8 +244,7 @@ export default class EntityFactory {
             }, {
                 type: 'MoveAlongRing',
                 radius,
-                angle,
-                speed: 0
+                angle
             }, {
                 type: 'Collider'
             }]

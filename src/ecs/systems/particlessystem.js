@@ -1,20 +1,18 @@
 import { System } from "ape-ecs";
 import { BufferAttribute, Color, Vector3 } from "three";
-import EntityFactory from '../entityfactory';
 import CanvasFactory from "../../canvasfactory";
 import MeshFactory from "../../meshfactory";
+import Tween from "../../tween";
 
 export default class ParticlesSystem extends System {
     init(threeScene) {
         this.threeScene = threeScene;
         this.scene = this.threeScene.scene;
         this.subscribe('Trail');
+        this.subscribe('Destroy');
 
         this.trailQy = this.createQuery()
             .fromAll('ThreeComponent', 'Trail').persist();
-
-        this.destroyQy = this.createQuery()
-            .fromAll('Trail', 'Destroy').persist();
     }
 
     update() {
@@ -35,62 +33,70 @@ export default class ParticlesSystem extends System {
                 trail.update();
                 this.scene.add(p);
             }
+            else if (c.op == 'add' && c.type == 'Destroy') {
+                const e = this.world.getEntity(c.entity);
+                if(e == null) return;
+                const component = e.getOne('Trail');
+                if(component == null) return;
+                const mesh = component.emitter;
+                mesh.geometry.dispose();
+                mesh.material.dispose();
+                this.scene.remove(mesh);
+                this.threeScene.renderer.renderLists.dispose();    
+            }
         });
 
         // trail update
         this.trailQy.execute().forEach(e => {
-            const trail = e.getOne('Trail');
-            const component = e.getOne('ThreeComponent');
+            const component = e.getOne('Trail');
+            const three = e.getOne('ThreeComponent');
 
-            if (trail == null) return;
-            if (trail.emitter == null) return;
             if (component == null) return;
+            if (component.emitter == null) return;
+            if (three == null) return;
 
             const delta = loop.delta;
-            const mesh = component.mesh;
-            const attributes = trail.emitter.geometry.attributes;
-            const count_per_s = trail.count_per_s;
-            const recycle_indices = [];
-
-            let i = 0;
-            for (; i < trail.max_count; i++) {
-                // update
-                this.updateParticle(i, delta, trail, attributes);
-
-                // get hidden particles
-                if (attributes.hidden.array[i] == 1) {
-                    recycle_indices.push(i);
-                }
-            }
-
-            // create
-            let creation_count = this.computeCreationCount(delta, count_per_s, recycle_indices.length);
-            for (let r = 0; r < creation_count; r++) {
-                i = recycle_indices[r];
-                this.createParticle(i, trail, attributes, 0);
-            }
-
-            attributes.angle.needsUpdate = true;
-            attributes.hidden.needsUpdate = true;
-
-            // TODO
-            attributes.position.needsUpdate = true;
-            attributes.velocity.needsUpdate = (trail.decay > 0);
-
-            attributes.size.needsUpdate = (trail.size_tween == true);
-            attributes.color.needsUpdate = (trail.color_tween == true);
-            trail.emitter.position.copy(mesh.position);
-            trail.update();
+            const mesh = three.mesh;
+            this.updateParticleEmitter(component, delta, mesh);
         })
+    }
 
-        this.destroyQy.execute().forEach(e => {
-            const trail = e.getOne('Trail');
-            const mesh = trail.emitter;
-            mesh.geometry.dispose();
-            mesh.material.dispose();
-            this.scene.remove(mesh);
-            this.threeScene.renderer.renderLists.dispose();
-        })
+    updateParticleEmitter(component, delta, mesh) {
+        const attributes = component.emitter.geometry.attributes;
+        const count_per_s = component.count_per_s;
+        const recycle_indices = [];
+
+        let i = 0;
+        for (; i < component.max_count; i++) {
+            // update
+            this.updateParticle(i, delta, component, attributes);
+
+            // get hidden particles
+            if (attributes.hidden.array[i] == 1) {
+                recycle_indices.push(i);
+            }
+        }
+
+        // create
+        let creation_count = this.computeCreationCount(delta, count_per_s, recycle_indices.length);
+        for (let r = 0; r < creation_count; r++) {
+            i = recycle_indices[r];
+            this.createParticle(i, component, mesh, attributes, 0);
+        }
+
+        attributes.angle.needsUpdate = true;
+        attributes.hidden.needsUpdate = true;
+
+        // TODO
+        attributes.position.needsUpdate = true;
+        attributes.velocity.needsUpdate = (component.decay > 0);
+
+        attributes.size.needsUpdate = (component.use_size_tween == true);
+        attributes.color.needsUpdate = (component.use_color_tween == true);
+
+        if (component.behavior != 'trail')
+            component.emitter.position.copy(mesh.position);
+        component.update();
     }
 
     computeCreationCount(delta, count_per_s, recycle_indices_count) {
@@ -148,7 +154,7 @@ export default class ParticlesSystem extends System {
         trail.emitter = emitter;
         trail.age = age;
         trail.max_count = count;
-
+        
         // convert color
         if (Number.isInteger(trail.color_start))
             trail.color_start = new Color(trail.color_start)
@@ -158,78 +164,95 @@ export default class ParticlesSystem extends System {
         // tmp vars
         trail.v3 = new Vector3();
 
+        // tweens
+        if(trail.use_size_tween && 
+            (trail.size_tween == null || trail.size_tween.length < count))
+            trail.size_tween = new Array(count);
+        if(trail.use_color_tween &&
+            (trail.color_tween == null || trail.color_tween.length < count))
+            trail.color_tween = new Array(count);
+        
+
         // insert data in arrays
         const attributes = emitter.geometry.attributes;
         for (let i = 0; i < count; i++) {
-            this.createParticle(i, trail, attributes, i >= visibles);
+            this.createParticle(i, trail, mesh, attributes, i >= visibles);
         }
         return emitter;
     }
 
-    createParticle(i, trail, attributes, hidden = 1) {
+    createParticle(i, trail, mesh, attributes, hidden = 1) {
         trail.age[i] = 0;
         attributes.hidden.array[i] = hidden;
         attributes.angle.array[i] = Math.random() * Math.PI * 2;
-
         attributes.size.array[i] = Math.random() * trail.size_start + trail.size_start;
-
-
+        
         // position
         trail.v3 = trail.v3.random()
             .addScalar(-0.5)
             .setLength(trail.system_size);
+
+        if (trail.behavior == 'trail') {
+            trail.v3.add(mesh.position);
+        }
         attributes.position.set(trail.v3.toArray(), i * 3);
 
         // velocity
-        if (trail.behavior == 'trail') {
-            attributes.velocity.set(trail.velocity.toArray(), i * 3)
-        }
-        else if (trail.behavior == 'explosion') {
-            trail.v3.setLength(Math.random() * trail.system_size);
+        if (trail.behavior == 'explosion') {
+            trail.v3.setLength(Math.random() * trail.velocity);
             attributes.velocity.set(trail.v3.toArray(), i * 3);
         }
 
         // color
         attributes.color.set(trail.color_start.toArray(), i * 3);
+        
+        // tweens
+        if(trail.use_size_tween)
+            trail.size_tween[i] = new Tween(attributes.size.array[i], trail.size_end); 
+        
+        if(trail.use_color_tween)
+            trail.color_tween[i] = new Tween(trail.color_start, trail.color_end); 
+
     }
 
     updateParticle(i, delta, trail, attributes) {
         trail.age[i] += delta;
-        const t = 1 - trail.age[i] / trail.life;
+        const t = trail.age[i] / trail.life;
 
         // hide
-        if (t < 0)
+        if (t > 1)
             attributes.hidden.array[i] = 1;
 
         // is hidden ? 
         if (attributes.hidden.array[i] == 1)
             return;
 
-        // angle
+        // angle // TODO 
         attributes.angle.array[i] += .05;
 
         // size
-        if (trail.size_tween == true) {
-            attributes.size.array[i] =
-                trail.size_end + t * (trail.size_start - trail.size_end)
-        }
+        if (trail.use_size_tween == true)
+            attributes.size.array[i] = trail.size_tween[i].update(t);
 
         // color
-        if (trail.color_tween == true) {
-            const c = trail.color_end.clone().lerp(trail.color_start, t);
-            attributes.color.array.set(c.toArray(), i * 3);
+        if (trail.use_color_tween == true) {
+            trail.size_tween[i].update(t);
+            attributes.color.array[i * 3 + 0] = trail.color_tween[i].color.r;
+            attributes.color.array[i * 3 + 1] = trail.color_tween[i].color.g;
+            attributes.color.array[i * 3 + 2] = trail.color_tween[i].color.b;
         }
 
         // position
+        // TODO fix when trail
         if (attributes.velocity != null) {
             attributes.position.array[i * 3 + 0] +=
-                attributes.velocity.array[i * 3 + 0];
+                attributes.velocity.array[i * 3 + 0] * delta;
 
             attributes.position.array[i * 3 + 1] +=
-                attributes.velocity.array[i * 3 + 1];
+                attributes.velocity.array[i * 3 + 1] * delta;
 
             attributes.position.array[i * 3 + 2] +=
-                attributes.velocity.array[i * 3 + 2];
+                attributes.velocity.array[i * 3 + 2] * delta;
         }
 
         // velocities

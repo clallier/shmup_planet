@@ -13,7 +13,7 @@ export default class Weapon extends Component {
         // cooldown: should be init to reload_timer
         ammo_cooldown: 0.4,
 
-        reload_left: 3,
+        reload_left: 0,
         // timer: the time to wait 
         reload_timer: 2,
         // cooldown: should be init to 0

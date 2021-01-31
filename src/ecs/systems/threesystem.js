@@ -1,5 +1,6 @@
 import { System } from "ape-ecs";
 import { Vector3 } from "three";
+import Tween from "../../tween";
 
 export default class ThreeSystem extends System {
     init(threeScene) {
@@ -20,8 +21,8 @@ export default class ThreeSystem extends System {
         this.screenShakeQy = this.createQuery()
             .fromAll('ThreeComponent', 'ScreenShake').persist();
 
-        this.targetColorQy = this.createQuery()
-            .fromAll('ThreeComponent', 'TargetColor').persist();
+        this.tweenColorQy = this.createQuery()
+            .fromAll('ThreeComponent', 'TweenColor').persist();
     }
 
     update() {
@@ -59,24 +60,62 @@ export default class ThreeSystem extends System {
             component.mesh.material.uniforms['time'].value = loop.time;
         });
 
+        this.tweenColorQy.execute().forEach(e => {
+            const component = e.getOne('TweenColor');
+            const three = e.getOne('ThreeComponent');
+
+            if(component == null) return;
+            if(three == null) return;
+
+            if(component.tween == null)
+                component.tween = new Tween(component.start, component.end);
+
+            const tween = component.tween;
+            const t = component.time / component.duration;
+            const mesh = three.mesh;
+            mesh.material.color.copy(tween.update(t));
+
+            component.time += loop.delta;
+            component.update();
+        })
+
+        // should be the "before-last" update of threesystem 
+        // (cause of updateProjectionMatrix) 
         this.cameraTargetQy.execute().forEach(e => {
             const move = e.getOne('MoveAlongRing');
             if(move == null) return;
-
-            const h = Math.abs(move.speed) * 60;
-            const r = move.radius + 20 + Math.abs(move.speed) * 50;
-            const futur_angle = move.angle + move.speed * 4;
-            // console.log(h);
-            this.camera.fov = 100 + 2*h*h;
-            this.target.y = 20 + h + Math.sin(loop.time) * 1.7;
+ 
+            // 50 < fov < 100 - threescene.resize()
+            let fov = this.threeScene.fov;
+            // velocity (max: 0.3)
+            const vel = move.velocity * loop.delta;
+            // velocity * velocity (max: 324)
+            const v = (60 * vel) ** 2;
+            // camera "dist" (~20)
+            const d = 120 - fov;
+            // camera height (~20)
+            const h = Math.min(v + (10 + .5 * d), 80);
+            // camera radius
+            const r = move.radius + d;
+            // camera angle
+            const futur_angle = move.angle + vel;
+            // fov
+            fov = Math.min(fov + 4 * v, fov + 20);
+            // console.log(`v:${v.toFixed(1)} d:${d.toFixed(1)}, h:${h.toFixed(1)}, r:${r.toFixed(1)}, a:${futur_angle.toFixed(1)}, fov:${fov}`);  
+        
+            this.target.y = h /*+ Math.sin(loop.time) * 1.7*/;
             this.target.x = Math.cos(futur_angle) * r;
             this.target.z = Math.sin(futur_angle) * r;
-            
-            this.camera.position.lerp(this.target, 0.3);
+            this.camera.position.lerp(this.target, 0.8);
             this.camera.lookAt(0, 0, 0);
+       
+            this.camera.fov = Tween.lerp(this.camera.fov, fov, .8);
+            // console.log(`fov:${this.camera.fov.toFixed(1)}`);
             this.camera.updateProjectionMatrix();
         })
 
+        // should be the last update of threesystem 
+        // (cause change camera position) 
         this.screenShakeQy.execute().forEach(e => {
             const screenShake = e.getOne('ScreenShake');
             const component = e.getOne('ThreeComponent');
@@ -88,21 +127,6 @@ export default class ThreeSystem extends System {
             this.camera.position.x += Math.random() * p - p/2;
             this.camera.position.y += Math.random() * p - p/2;
             this.camera.position.z += Math.random() * p - p/2;
-        })
-
-        this.targetColorQy.execute().forEach(e => {
-            const target = e.getOne('TargetColor');
-            const component = e.getOne('ThreeComponent');
-
-            if(target == null) return;
-            if(component == null) return;
-
-            const t = target.time / target.duration;
-            const mesh = component.mesh;
-            mesh.material.color.lerp(target.color, t);
-
-            target.time += loop.delta;
-            target.update();
         })
       }
 }

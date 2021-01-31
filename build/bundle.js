@@ -1575,9 +1575,10 @@ class ScreenShake extends src.Component {
     }
 }
 
-class TargetColor extends src.Component {
+class TweenColor extends src.Component {
     static properties = {
-        color: null,
+        start: null,
+        end: null,
         time: 0,
         duration: 1
     }
@@ -47342,8 +47343,10 @@ class MoveAlongRing extends src.Component {
         angle: 0,
         min_angle: 0,
         max_angle: 2 * Math.PI,
-        speed: 0,
-        decay: 0.97
+        force : 5,
+        max_velocity : 1,
+        decay: 0,
+        velocity: 0
     }
 }
 
@@ -47360,7 +47363,7 @@ class Weapon extends src.Component {
         // cooldown: should be init to reload_timer
         ammo_cooldown: 0.4,
 
-        reload_left: 3,
+        reload_left: 0,
         // timer: the time to wait 
         reload_timer: 2,
         // cooldown: should be init to 0
@@ -47410,11 +47413,11 @@ class Trail extends src.Component {
 
     // particle props
     life: 1, // in s
-    size_tween: true,
+    use_size_tween: true,
     size_start: 1,
     size_end: 0,
     velocity: null,
-    color_tween: true,
+    use_color_tween: true,
     color_start: new Vector3(1, 0, 0),
     color_end: new Vector3(0, 0, 1),
 
@@ -47425,18 +47428,17 @@ class Trail extends src.Component {
 }
 
 class EmitterFactory {
-  static createTrail(velocity) {
+  static createTrail(size = 4) {
     return {
       type: 'Trail',
       behavior: 'trail',
 
       shape: 'rect',
-      system_size: 4,
+      system_size: size,
       count_per_s: 40,
 
       life: 0.8,
-      velocity: velocity,
-      size_start: 3,
+      size_start: 1,
       size_end: 0,
       color_start: Palette.light,
       color_end: Palette.dark_red
@@ -47455,8 +47457,9 @@ class EmitterFactory {
       decay: 0.96,
 
       life: 1.2,
-      size_start: 10,
+      size_start: 6,
       size_end: 0,
+      velocity: 400,
       color_start: Palette.red,
       color_end: Palette.light
     }
@@ -48879,25 +48882,28 @@ class EntityFactory {
             }, {
                 type: 'MoveAlongRing',
                 radius: 160,
-                angle: Math.PI / 2,
-                decay: 0.96
+                force : 10,
+                max_velocity : 3,
+                decay: 0.94
             }, {
                 type: 'Weapon'
-            }]
+            },
+            EmitterFactory.createTrail(.5)
+            ]
         });
     }
 
     static createBullet(type, position, direction) {
         let mesh = null;
         if (type == 'bullet')
-            mesh = MeshFactory.createBox({
-                width: 4,
-                height: 4,
-                depth: 4,
+            mesh = MeshFactory.createTetra({
+                radius: 4,
                 color: Palette.dark_blue
             });
         else
             console.warn('unknown bullet type');
+
+        const velocity = direction.clone().multiplyScalar(100); // 200u/s
 
         this.ecs.createEntity({
             tags: ['Bullet'],
@@ -48908,11 +48914,13 @@ class EntityFactory {
                 rotation: direction.clone(),
             }, {
                 type: 'Move',
-                velocity: direction.clone().multiplyScalar(2)
+                velocity,
+                tilt_angle: 0.1
             }, {
-                type: 'TargetColor',
-                color: new Color(Palette.light),
-                duration: 0.8
+                type: 'TweenColor',
+                start: new Color(Palette.red),
+                end: new Color(Palette.light),
+                duration: 0.4
             }, {
                 type: 'DeleteTimer',
                 time_left: 0.8
@@ -48920,9 +48928,7 @@ class EntityFactory {
                 type: 'Collider',
                 against: 'Enemy'
             },
-            EmitterFactory.createTrail(
-                direction.clone().multiplyScalar(-2)
-            )
+            EmitterFactory.createTrail()
             ]
         });
     }
@@ -48989,16 +48995,16 @@ class EntityFactory {
                 Math.sin(angle) * radius
             );
 
-            let mesh = null;    
+            let mesh = null;
             if (Math.random() < 0.9)
                 mesh = MeshFactory.createTetra({
                     radius: size,
                     detail: 1,
                     color: Palette.red
                 });
-            else 
+            else
                 mesh = MeshFactory.createSaucer();
-                
+
             this.ecs.createEntity({
                 tags: ['Enemy', 'Explodes'],
                 components: [{
@@ -49009,7 +49015,6 @@ class EntityFactory {
                     type: 'MoveAlongRing',
                     radius: radius,
                     angle: angle,
-                    speed: 0
                 }, {
                     type: 'Collider'
                 }]
@@ -49038,8 +49043,7 @@ class EntityFactory {
             }, {
                 type: 'MoveAlongRing',
                 radius,
-                angle,
-                speed: 0
+                angle
             }, {
                 type: 'Collider'
             }]
@@ -49135,6 +49139,38 @@ class TimeSystem extends src.System {
   }
 }
 
+class Tween {
+    constructor(start, end) {
+        this.start = start;
+        this.end = end;
+
+        if(start instanceof Color) {
+            this.f = (t) => this.vector3Lerp(t);
+            this.color = this.start.clone();
+        }
+        else this.f = (t) => this.lerp(t);
+    }
+
+    update (t) {
+        return this.f(t);
+    }
+
+    vector3Lerp (t) {
+        this.color.r = Tween.lerp(this.start.r, this.end.r, t);
+        this.color.g = Tween.lerp(this.start.g, this.end.g, t);
+        this.color.b = Tween.lerp(this.start.b, this.end.b, t);
+        return this.color;
+    }
+
+    lerp (t) {
+        return Tween.lerp(this.start, this.end, t);
+    }
+
+    static lerp(start, end, t) {
+        return start + t * (end - start);
+    }
+}
+
 class ThreeSystem extends src.System {
     init(threeScene) {
         this.threeScene = threeScene;
@@ -49154,8 +49190,8 @@ class ThreeSystem extends src.System {
         this.screenShakeQy = this.createQuery()
             .fromAll('ThreeComponent', 'ScreenShake').persist();
 
-        this.targetColorQy = this.createQuery()
-            .fromAll('ThreeComponent', 'TargetColor').persist();
+        this.tweenColorQy = this.createQuery()
+            .fromAll('ThreeComponent', 'TweenColor').persist();
     }
 
     update() {
@@ -49193,24 +49229,62 @@ class ThreeSystem extends src.System {
             component.mesh.material.uniforms['time'].value = loop.time;
         });
 
+        this.tweenColorQy.execute().forEach(e => {
+            const component = e.getOne('TweenColor');
+            const three = e.getOne('ThreeComponent');
+
+            if(component == null) return;
+            if(three == null) return;
+
+            if(component.tween == null)
+                component.tween = new Tween(component.start, component.end);
+
+            const tween = component.tween;
+            const t = component.time / component.duration;
+            const mesh = three.mesh;
+            mesh.material.color.copy(tween.update(t));
+
+            component.time += loop.delta;
+            component.update();
+        });
+
+        // should be the "before-last" update of threesystem 
+        // (cause of updateProjectionMatrix) 
         this.cameraTargetQy.execute().forEach(e => {
             const move = e.getOne('MoveAlongRing');
             if(move == null) return;
-
-            const h = Math.abs(move.speed) * 60;
-            const r = move.radius + 20 + Math.abs(move.speed) * 50;
-            const futur_angle = move.angle + move.speed * 4;
-            // console.log(h);
-            this.camera.fov = 100 + 2*h*h;
-            this.target.y = 20 + h + Math.sin(loop.time) * 1.7;
+ 
+            // 50 < fov < 100 - threescene.resize()
+            let fov = this.threeScene.fov;
+            // velocity (max: 0.3)
+            const vel = move.velocity * loop.delta;
+            // velocity * velocity (max: 324)
+            const v = (60 * vel) ** 2;
+            // camera "dist" (~20)
+            const d = 120 - fov;
+            // camera height (~20)
+            const h = Math.min(v + (10 + .5 * d), 80);
+            // camera radius
+            const r = move.radius + d;
+            // camera angle
+            const futur_angle = move.angle + vel;
+            // fov
+            fov = Math.min(fov + 4 * v, fov + 20);
+            // console.log(`v:${v.toFixed(1)} d:${d.toFixed(1)}, h:${h.toFixed(1)}, r:${r.toFixed(1)}, a:${futur_angle.toFixed(1)}, fov:${fov}`);  
+        
+            this.target.y = h /*+ Math.sin(loop.time) * 1.7*/;
             this.target.x = Math.cos(futur_angle) * r;
             this.target.z = Math.sin(futur_angle) * r;
-            
-            this.camera.position.lerp(this.target, 0.3);
+            this.camera.position.lerp(this.target, 0.8);
             this.camera.lookAt(0, 0, 0);
+       
+            this.camera.fov = Tween.lerp(this.camera.fov, fov, .8);
+            // console.log(`fov:${this.camera.fov.toFixed(1)}`);
             this.camera.updateProjectionMatrix();
         });
 
+        // should be the last update of threesystem 
+        // (cause change camera position) 
         this.screenShakeQy.execute().forEach(e => {
             const screenShake = e.getOne('ScreenShake');
             const component = e.getOne('ThreeComponent');
@@ -49222,21 +49296,6 @@ class ThreeSystem extends src.System {
             this.camera.position.x += Math.random() * p - p/2;
             this.camera.position.y += Math.random() * p - p/2;
             this.camera.position.z += Math.random() * p - p/2;
-        });
-
-        this.targetColorQy.execute().forEach(e => {
-            const target = e.getOne('TargetColor');
-            const component = e.getOne('ThreeComponent');
-
-            if(target == null) return;
-            if(component == null) return;
-
-            const t = target.time / target.duration;
-            const mesh = component.mesh;
-            mesh.material.color.lerp(target.color, t);
-
-            target.time += loop.delta;
-            target.update();
         });
       }
 }
@@ -49259,17 +49318,30 @@ class MoveSystem extends src.System {
             if(move == null) return;
             if(component == null) return;
             const mesh = component.mesh;
+            
+            // max velocity
+            if (move.velocity > move.max_velocity) {
+                move.velocity = move.max_velocity;
+            }
+            if (move.velocity < -move.max_velocity) {
+                move.velocity = -move.max_velocity;
+            }
 
-            move.speed *= move.decay;
-            if (move.speed > 0.1) move.speed == 0.1;
-            if (move.speed < -0.1) move.speed == -0.1;
-            move.angle += move.speed;
-    
+            // if(e.id == 'player') {
+            //     console.log(`${e.id}: ${move.velocity.toFixed(2)} / ${move.max_velocity}, ↗:${(move.force * loop.delta).toFixed(2)} ↘:${move.decay}`);
+            // }
+
+            // add velocity to angle
+            move.angle += (move.velocity * loop.delta);
+
             if (move.angle > move.max_angle)
                 move.angle -= move.max_angle;
             if (move.angle < move.min_angle)
                 move.angle += move.max_angle;
-    
+
+            // decay
+            move.velocity *= move.decay;
+
             mesh.position.x = Math.cos(move.angle) * move.radius;
             mesh.position.z = Math.sin(move.angle) * move.radius;
             mesh.position.y = 2 + Math.sin(loop.time) * 2;
@@ -49286,9 +49358,15 @@ class MoveSystem extends src.System {
 
             const mesh = component.mesh;
             move.velocity.y += move.gravity;
-            move.velocity = move.velocity.multiplyScalar(move.decay);
-            mesh.position.add(move.velocity);
+            const vel = move.velocity.clone().multiplyScalar(loop.delta);
+            
+            // add velocity to position
+            mesh.position.add(vel);
             mesh.rotateZ(move.tilt_angle);
+            
+            // decay
+            move.velocity.multiplyScalar(move.decay);
+        
             move.update();
           });
     }
@@ -49297,16 +49375,49 @@ class MoveSystem extends src.System {
 class ControlSystem extends src.System {
     init() {
         this.event = null;
-        this.force = 0.008;
         this.controllableQy = this.createQuery()
             .fromAll('Controllable', 'MoveAlongRing');
 
         document.addEventListener('keydown', (e) => {
+            e.preventDefault();
             if (e.code == 'ArrowLeft')
                 this.event = 'move_left';
             if (e.code == 'ArrowRight')
                 this.event = 'move_right';
         });
+
+        document.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            const target = e.target;
+            const x = e.clientX / target.clientWidth;
+            const y = e.clientY / target.clientHeight;
+            
+            // console.log(`e x:${x.toFixed(2)}, y:${y.toFixed(2)}`);
+
+            if(y > 0.6 && x < 0.5) {
+                this.event = 'move_left';
+            }
+            if(y > 0.6 && x > 0.5) {
+                this.event = 'move_right';
+            }
+        });
+
+
+        // =======================================
+
+        document.addEventListener('keyup', (e) => {
+            e.preventDefault();
+            if (e.code == 'ArrowLeft')
+                this.event = null;
+            if (e.code == 'ArrowRight')
+                this.event = null;
+        });
+
+        document.addEventListener('pointerup', (e) => {
+            e.preventDefault();
+            this.event = null;
+        });
+
     }
 
     update() {
@@ -49315,14 +49426,17 @@ class ControlSystem extends src.System {
         this.controllableQy.execute().forEach(entity => {
             const move = entity.getOne('MoveAlongRing');
             
-            if (this.event == 'move_left')
-                move.speed += this.force;
+            if (this.event == 'move_left') {
+                move.velocity += move.force * loop.delta;
+                move.update();
+            }
                 
-            if (this.event == 'move_right')
-                move.speed -= this.force;
-        });
+            if (this.event == 'move_right') {
+                move.velocity -= move.force * loop.delta;
+                move.update();
+            }
 
-        this.event = null;
+        });
     }
 }
 
@@ -49431,7 +49545,7 @@ class CollisionSystem extends src.System {
             // console.log(`${i.id} Explodes`);
             i.removeTag('Explodes');
             // TODO add hide component
-            i.addComponent({type: 'DeleteTimer', time_left: 0.2});
+            i.addComponent({type: 'Destroy'});
             
             // create an explosion 
             EntityFactory.createParticleExplosion({
@@ -49455,12 +49569,10 @@ class ParticlesSystem extends src.System {
         this.threeScene = threeScene;
         this.scene = this.threeScene.scene;
         this.subscribe('Trail');
+        this.subscribe('Destroy');
 
         this.trailQy = this.createQuery()
             .fromAll('ThreeComponent', 'Trail').persist();
-
-        this.destroyQy = this.createQuery()
-            .fromAll('Trail', 'Destroy').persist();
     }
 
     update() {
@@ -49481,62 +49593,70 @@ class ParticlesSystem extends src.System {
                 trail.update();
                 this.scene.add(p);
             }
+            else if (c.op == 'add' && c.type == 'Destroy') {
+                const e = this.world.getEntity(c.entity);
+                if(e == null) return;
+                const component = e.getOne('Trail');
+                if(component == null) return;
+                const mesh = component.emitter;
+                mesh.geometry.dispose();
+                mesh.material.dispose();
+                this.scene.remove(mesh);
+                this.threeScene.renderer.renderLists.dispose();    
+            }
         });
 
         // trail update
         this.trailQy.execute().forEach(e => {
-            const trail = e.getOne('Trail');
-            const component = e.getOne('ThreeComponent');
+            const component = e.getOne('Trail');
+            const three = e.getOne('ThreeComponent');
 
-            if (trail == null) return;
-            if (trail.emitter == null) return;
             if (component == null) return;
+            if (component.emitter == null) return;
+            if (three == null) return;
 
             const delta = loop.delta;
-            const mesh = component.mesh;
-            const attributes = trail.emitter.geometry.attributes;
-            const count_per_s = trail.count_per_s;
-            const recycle_indices = [];
-
-            let i = 0;
-            for (; i < trail.max_count; i++) {
-                // update
-                this.updateParticle(i, delta, trail, attributes);
-
-                // get hidden particles
-                if (attributes.hidden.array[i] == 1) {
-                    recycle_indices.push(i);
-                }
-            }
-
-            // create
-            let creation_count = this.computeCreationCount(delta, count_per_s, recycle_indices.length);
-            for (let r = 0; r < creation_count; r++) {
-                i = recycle_indices[r];
-                this.createParticle(i, trail, attributes, 0);
-            }
-
-            attributes.angle.needsUpdate = true;
-            attributes.hidden.needsUpdate = true;
-
-            // TODO
-            attributes.position.needsUpdate = true;
-            attributes.velocity.needsUpdate = (trail.decay > 0);
-
-            attributes.size.needsUpdate = (trail.size_tween == true);
-            attributes.color.needsUpdate = (trail.color_tween == true);
-            trail.emitter.position.copy(mesh.position);
-            trail.update();
+            const mesh = three.mesh;
+            this.updateParticleEmitter(component, delta, mesh);
         });
+    }
 
-        this.destroyQy.execute().forEach(e => {
-            const trail = e.getOne('Trail');
-            const mesh = trail.emitter;
-            mesh.geometry.dispose();
-            mesh.material.dispose();
-            this.scene.remove(mesh);
-            this.threeScene.renderer.renderLists.dispose();
-        });
+    updateParticleEmitter(component, delta, mesh) {
+        const attributes = component.emitter.geometry.attributes;
+        const count_per_s = component.count_per_s;
+        const recycle_indices = [];
+
+        let i = 0;
+        for (; i < component.max_count; i++) {
+            // update
+            this.updateParticle(i, delta, component, attributes);
+
+            // get hidden particles
+            if (attributes.hidden.array[i] == 1) {
+                recycle_indices.push(i);
+            }
+        }
+
+        // create
+        let creation_count = this.computeCreationCount(delta, count_per_s, recycle_indices.length);
+        for (let r = 0; r < creation_count; r++) {
+            i = recycle_indices[r];
+            this.createParticle(i, component, mesh, attributes, 0);
+        }
+
+        attributes.angle.needsUpdate = true;
+        attributes.hidden.needsUpdate = true;
+
+        // TODO
+        attributes.position.needsUpdate = true;
+        attributes.velocity.needsUpdate = (component.decay > 0);
+
+        attributes.size.needsUpdate = (component.use_size_tween == true);
+        attributes.color.needsUpdate = (component.use_color_tween == true);
+
+        if (component.behavior != 'trail')
+            component.emitter.position.copy(mesh.position);
+        component.update();
     }
 
     computeCreationCount(delta, count_per_s, recycle_indices_count) {
@@ -49594,7 +49714,7 @@ class ParticlesSystem extends src.System {
         trail.emitter = emitter;
         trail.age = age;
         trail.max_count = count;
-
+        
         // convert color
         if (Number.isInteger(trail.color_start))
             trail.color_start = new Color(trail.color_start);
@@ -49604,78 +49724,95 @@ class ParticlesSystem extends src.System {
         // tmp vars
         trail.v3 = new Vector3();
 
+        // tweens
+        if(trail.use_size_tween && 
+            (trail.size_tween == null || trail.size_tween.length < count))
+            trail.size_tween = new Array(count);
+        if(trail.use_color_tween &&
+            (trail.color_tween == null || trail.color_tween.length < count))
+            trail.color_tween = new Array(count);
+        
+
         // insert data in arrays
         const attributes = emitter.geometry.attributes;
         for (let i = 0; i < count; i++) {
-            this.createParticle(i, trail, attributes, i >= visibles);
+            this.createParticle(i, trail, mesh, attributes, i >= visibles);
         }
         return emitter;
     }
 
-    createParticle(i, trail, attributes, hidden = 1) {
+    createParticle(i, trail, mesh, attributes, hidden = 1) {
         trail.age[i] = 0;
         attributes.hidden.array[i] = hidden;
         attributes.angle.array[i] = Math.random() * Math.PI * 2;
-
         attributes.size.array[i] = Math.random() * trail.size_start + trail.size_start;
-
-
+        
         // position
         trail.v3 = trail.v3.random()
             .addScalar(-0.5)
             .setLength(trail.system_size);
+
+        if (trail.behavior == 'trail') {
+            trail.v3.add(mesh.position);
+        }
         attributes.position.set(trail.v3.toArray(), i * 3);
 
         // velocity
-        if (trail.behavior == 'trail') {
-            attributes.velocity.set(trail.velocity.toArray(), i * 3);
-        }
-        else if (trail.behavior == 'explosion') {
-            trail.v3.setLength(Math.random() * trail.system_size);
+        if (trail.behavior == 'explosion') {
+            trail.v3.setLength(Math.random() * trail.velocity);
             attributes.velocity.set(trail.v3.toArray(), i * 3);
         }
 
         // color
         attributes.color.set(trail.color_start.toArray(), i * 3);
+        
+        // tweens
+        if(trail.use_size_tween)
+            trail.size_tween[i] = new Tween(attributes.size.array[i], trail.size_end); 
+        
+        if(trail.use_color_tween)
+            trail.color_tween[i] = new Tween(trail.color_start, trail.color_end); 
+
     }
 
     updateParticle(i, delta, trail, attributes) {
         trail.age[i] += delta;
-        const t = 1 - trail.age[i] / trail.life;
+        const t = trail.age[i] / trail.life;
 
         // hide
-        if (t < 0)
+        if (t > 1)
             attributes.hidden.array[i] = 1;
 
         // is hidden ? 
         if (attributes.hidden.array[i] == 1)
             return;
 
-        // angle
+        // angle // TODO 
         attributes.angle.array[i] += .05;
 
         // size
-        if (trail.size_tween == true) {
-            attributes.size.array[i] =
-                trail.size_end + t * (trail.size_start - trail.size_end);
-        }
+        if (trail.use_size_tween == true)
+            attributes.size.array[i] = trail.size_tween[i].update(t);
 
         // color
-        if (trail.color_tween == true) {
-            const c = trail.color_end.clone().lerp(trail.color_start, t);
-            attributes.color.array.set(c.toArray(), i * 3);
+        if (trail.use_color_tween == true) {
+            trail.size_tween[i].update(t);
+            attributes.color.array[i * 3 + 0] = trail.color_tween[i].color.r;
+            attributes.color.array[i * 3 + 1] = trail.color_tween[i].color.g;
+            attributes.color.array[i * 3 + 2] = trail.color_tween[i].color.b;
         }
 
         // position
+        // TODO fix when trail
         if (attributes.velocity != null) {
             attributes.position.array[i * 3 + 0] +=
-                attributes.velocity.array[i * 3 + 0];
+                attributes.velocity.array[i * 3 + 0] * delta;
 
             attributes.position.array[i * 3 + 1] +=
-                attributes.velocity.array[i * 3 + 1];
+                attributes.velocity.array[i * 3 + 1] * delta;
 
             attributes.position.array[i * 3 + 2] +=
-                attributes.velocity.array[i * 3 + 2];
+                attributes.velocity.array[i * 3 + 2] * delta;
         }
 
         // velocities
@@ -52193,13 +52330,15 @@ class ThreeScene {
         // this.renderer.shadowMap.type = PCFSoftShadowMap;
         this.renderer.setClearColor(Palette.dark, 1);
         // camera
+        this.fov = 50;
         this.camera = new PerspectiveCamera(100, 2, 0.1, 1000);
         this.camera.position.x = 0;
         this.camera.position.y = 15;
         this.camera.position.z = 200;
+        this.camera.fov = this.fov;
         // camera default control
         this.control = new OrbitControls(this.camera, this.canvas);
-        this.control.enabled = true;
+        this.control.enabled = false;
         // scene
         this.scene = new Scene();
         
@@ -52241,6 +52380,13 @@ class ThreeScene {
         const height = canvas.clientHeight;
         if (canvas.width !== width || canvas.height !== height) {
             this.camera.aspect = width / height;
+
+            let fov = 50 / this.camera.aspect + 20;
+            fov = Math.max(50, fov);
+            fov = Math.min(100, fov);
+            this.fov = fov;
+
+            this.camera.fov = this.fov;
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(width, height, false);
             this.composer.setSize(width, height);
@@ -52266,7 +52412,7 @@ class App {
         this.ecs.registerComponent(Move);
         this.ecs.registerComponent(Weapon);
         this.ecs.registerComponent(Collider);
-        this.ecs.registerComponent(TargetColor);
+        this.ecs.registerComponent(TweenColor);
         this.ecs.registerComponent(Trail);
 
         // tags

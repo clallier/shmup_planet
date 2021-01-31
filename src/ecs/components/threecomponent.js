@@ -15,9 +15,10 @@ export class ScreenShake extends Component {
     }
 }
 
-export class TargetColor extends Component {
+export class TweenColor extends Component {
     static properties = {
-        color: null,
+        start: null,
+        end: null,
         time: 0,
         duration: 1
     }

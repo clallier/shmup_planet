@@ -35,7 +35,7 @@ export default class CollisionSystem extends System {
             // console.log(`${i.id} Explodes`);
             i.removeTag('Explodes');
             // TODO add hide component
-            i.addComponent({type: 'DeleteTimer', time_left: 0.2});
+            i.addComponent({type: 'Destroy'});
             
             // create an explosion 
             EntityFactory.createParticleExplosion({

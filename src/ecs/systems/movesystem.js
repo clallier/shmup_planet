@@ -18,17 +18,30 @@ export default class MoveSystem extends System {
             if(move == null) return;
             if(component == null) return;
             const mesh = component.mesh;
+            
+            // max velocity
+            if (move.velocity > move.max_velocity) {
+                move.velocity = move.max_velocity;
+            }
+            if (move.velocity < -move.max_velocity) {
+                move.velocity = -move.max_velocity;
+            }
 
-            move.speed *= move.decay;
-            if (move.speed > 0.1) move.speed == 0.1;
-            if (move.speed < -0.1) move.speed == -0.1;
-            move.angle += move.speed;
-    
+            // if(e.id == 'player') {
+            //     console.log(`${e.id}: ${move.velocity.toFixed(2)} / ${move.max_velocity}, ↗:${(move.force * loop.delta).toFixed(2)} ↘:${move.decay}`);
+            // }
+
+            // add velocity to angle
+            move.angle += (move.velocity * loop.delta);
+
             if (move.angle > move.max_angle)
                 move.angle -= move.max_angle;
             if (move.angle < move.min_angle)
                 move.angle += move.max_angle;
-    
+
+            // decay
+            move.velocity *= move.decay;
+
             mesh.position.x = Math.cos(move.angle) * move.radius;
             mesh.position.z = Math.sin(move.angle) * move.radius;
             mesh.position.y = 2 + Math.sin(loop.time) * 2;
@@ -45,9 +58,15 @@ export default class MoveSystem extends System {
 
             const mesh = component.mesh;
             move.velocity.y += move.gravity;
-            move.velocity = move.velocity.multiplyScalar(move.decay);
-            mesh.position.add(move.velocity);
+            const vel = move.velocity.clone().multiplyScalar(loop.delta)
+            
+            // add velocity to position
+            mesh.position.add(vel);
             mesh.rotateZ(move.tilt_angle);
+            
+            // decay
+            move.velocity.multiplyScalar(move.decay);
+        
             move.update();
           });
     }

@@ -18,11 +18,11 @@ export class Trail extends Component {
 
     // particle props
     life: 1, // in s
-    size_tween: true,
+    use_size_tween: true,
     size_start: 1,
     size_end: 0,
     velocity: null,
-    color_tween: true,
+    use_color_tween: true,
     color_start: new Vector3(1, 0, 0),
     color_end: new Vector3(0, 0, 1),
 
@@ -33,18 +33,17 @@ export class Trail extends Component {
 }
 
 export class EmitterFactory {
-  static createTrail(velocity) {
+  static createTrail(size = 4) {
     return {
       type: 'Trail',
       behavior: 'trail',
 
       shape: 'rect',
-      system_size: 4,
+      system_size: size,
       count_per_s: 40,
 
       life: 0.8,
-      velocity: velocity,
-      size_start: 3,
+      size_start: 1,
       size_end: 0,
       color_start: Palette.light,
       color_end: Palette.dark_red
@@ -63,8 +62,9 @@ export class EmitterFactory {
       decay: 0.96,
 
       life: 1.2,
-      size_start: 10,
+      size_start: 6,
       size_end: 0,
+      velocity: 400,
       color_start: Palette.red,
       color_end: Palette.light
     }
