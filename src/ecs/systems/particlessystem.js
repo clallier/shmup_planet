@@ -35,14 +35,15 @@ export default class ParticlesSystem extends System {
             }
             else if (c.op == 'add' && c.type == 'Destroy') {
                 const e = this.world.getEntity(c.entity);
-                if(e == null) return;
+                if (e == null) return;
                 const component = e.getOne('Trail');
-                if(component == null) return;
+                if (component == null) return;
                 const mesh = component.emitter;
-                mesh.geometry.dispose();
-                mesh.material.dispose();
-                this.scene.remove(mesh);
-                this.threeScene.renderer.renderLists.dispose();    
+                mesh.visible = false;
+                // mesh.geometry.dispose();
+                // mesh.material.dispose();
+                // this.scene.remove(mesh);
+                // this.threeScene.renderer.renderLists.dispose();    
             }
         });
 
@@ -67,7 +68,7 @@ export default class ParticlesSystem extends System {
         const recycle_indices = [];
 
         let i = 0;
-        for (; i < component.max_count; i++) {
+        for (; i < component.count; i++) {
             // update
             this.updateParticle(i, delta, component, attributes);
 
@@ -120,13 +121,17 @@ export default class ParticlesSystem extends System {
 
         const count = trail.max_count || visibles + trail.count_per_s * trail.life;
 
+        console.log(`max: ${trail.count}, count: ${count}`)
+
+        trail.texture = CanvasFactory.createTexture({
+            shape: trail.shape
+        })
+
         const emitter = MeshFactory.createPoints({
             count,
             system_size,
             position: mesh.position,
-            texture: CanvasFactory.createTexture({
-                shape: trail.shape
-            }),
+            texture: trail.texture,
             dynamic: true,
         });
 
@@ -152,9 +157,10 @@ export default class ParticlesSystem extends System {
 
         // setup trail object
         trail.emitter = emitter;
+
         trail.age = age;
-        trail.max_count = count;
-        
+        trail.count = count;
+
         // convert color
         if (Number.isInteger(trail.color_start))
             trail.color_start = new Color(trail.color_start)
@@ -165,13 +171,13 @@ export default class ParticlesSystem extends System {
         trail.v3 = new Vector3();
 
         // tweens
-        if(trail.use_size_tween && 
+        if (trail.use_size_tween &&
             (trail.size_tween == null || trail.size_tween.length < count))
             trail.size_tween = new Array(count);
-        if(trail.use_color_tween &&
+        if (trail.use_color_tween &&
             (trail.color_tween == null || trail.color_tween.length < count))
             trail.color_tween = new Array(count);
-        
+
 
         // insert data in arrays
         const attributes = emitter.geometry.attributes;
@@ -186,7 +192,7 @@ export default class ParticlesSystem extends System {
         attributes.hidden.array[i] = hidden;
         attributes.angle.array[i] = Math.random() * Math.PI * 2;
         attributes.size.array[i] = Math.random() * trail.size_start + trail.size_start;
-        
+
         // position
         trail.v3 = trail.v3.random()
             .addScalar(-0.5)
@@ -205,13 +211,13 @@ export default class ParticlesSystem extends System {
 
         // color
         attributes.color.set(trail.color_start.toArray(), i * 3);
-        
+
         // tweens
-        if(trail.use_size_tween)
-            trail.size_tween[i] = new Tween(attributes.size.array[i], trail.size_end); 
-        
-        if(trail.use_color_tween)
-            trail.color_tween[i] = new Tween(trail.color_start, trail.color_end); 
+        if (trail.use_size_tween)
+            trail.size_tween[i] = new Tween(attributes.size.array[i], trail.size_end);
+
+        if (trail.use_color_tween)
+            trail.color_tween[i] = new Tween(trail.color_start, trail.color_end);
 
     }
 
@@ -261,7 +267,7 @@ export default class ParticlesSystem extends System {
             attributes.velocity.array[i * 3 + 0] *= 0.9;
 
             attributes.velocity.array[i * 3 + 1] *= trail.decay;
-            
+
             attributes.velocity.array[i * 3 + 2] *= trail.decay;
             attributes.velocity.array[i * 3 + 2] *= 0.9;
         }

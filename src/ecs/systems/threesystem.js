@@ -47,10 +47,11 @@ export default class ThreeSystem extends System {
                 if(component == null) return;
                 // console.log(`removed mesh from ${c.entity}`);
                 const mesh = component.mesh;
-                mesh.geometry.dispose();
-                mesh.material.dispose();
-                this.scene.remove(mesh);
-                this.threeScene.renderer.renderLists.dispose();
+                mesh.visible = false;
+                // mesh.geometry.dispose();
+                // mesh.material.dispose();
+                // this.scene.remove(mesh);
+                // this.threeScene.renderer.renderLists.dispose();
             }
         });
 

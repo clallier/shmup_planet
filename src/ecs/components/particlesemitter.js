@@ -6,7 +6,6 @@ import Palette from "../../palette";
 export class Trail extends Component {
   static properties = {
     behavior: '',
-    emitter: null,
 
     // emitter props
     shape: 'dot',
