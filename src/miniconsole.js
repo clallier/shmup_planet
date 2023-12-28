@@ -12,11 +12,11 @@ export default class MiniConsole {
         this.output.style.width = '100%';
         this.output.style.flexDirection = 'column-reverse';
         this.output.onclick = () => this.toggleSize();
-        this.maximize();
+        this.minimize();
         this.hide();
-        
+
         document.body.insertBefore(this.output, document.body.firstChild);
-        
+
         // Reference to native method(s)
         this.log = console.log;
         console.log = (...e) => this.consoleCatcher('', ...e)

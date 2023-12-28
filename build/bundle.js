@@ -1,6 +1,6 @@
 'use strict';
 
-class EntitySet extends Set {
+class EntitySet$1 extends Set {
   constructor(component, object, field) {
     super();
     this.component = component;
@@ -128,11 +128,11 @@ var entityrefs = {
   },
 
   EntitySet(component, object = [], field) {
-    return new EntitySet(component, object, field);
+    return new EntitySet$1(component, object, field);
   }
 };
 
-class IdGenerator {
+class IdGenerator$1 {
   constructor() {
     this.gen_num = 0;
     this.prefix = '';
@@ -186,12 +186,12 @@ function setUnion() {
 }
 
 var util = {
-  IdGenerator,
+  IdGenerator: IdGenerator$1,
   setIntersection,
   setUnion
 };
 
-const idGen = new util.IdGenerator();
+const idGen$1 = new util.IdGenerator();
 
 class Component {
   constructor(world) {
@@ -296,7 +296,7 @@ class Component {
 
   _setup(entity, initial) {
     this.entity = entity;
-    this.id = initial.id || idGen.genId();
+    this.id = initial.id || idGen$1.genId();
     this._meta.updated = this.world.currentTick;
     this._meta.entityId = entity.id;
     if (initial.key) {
@@ -399,8 +399,8 @@ Component.registered = false;
 
 var component = Component;
 
-const IdGenerator$1 = util.IdGenerator;
-const idGen$1 = new IdGenerator$1();
+const IdGenerator = util.IdGenerator;
+const idGen = new IdGenerator();
 
 class Entity {
   constructor() {
@@ -419,7 +419,7 @@ class Entity {
     if (definition.id) {
       this.id = definition.id;
     } else {
-      this.id = idGen$1.genId();
+      this.id = idGen.genId();
     }
     this.world.entities.set(this.id, this);
 
@@ -563,6 +563,8 @@ class Entity {
   }
 
   destroy() {
+
+    if (this.destroyed) return;
     if (this.world.refs[this.id]) {
       for (const ref of this.world.refs[this.id]) {
         const [entityId, componentId, prop, sub] = ref.split('...');
@@ -760,7 +762,7 @@ class Query {
           this.world.entityReverse.hasOwnProperty(source.entity.id) &&
           this.world.entityReverse[source.entity.id].hasOwnProperty(source.type)
         ) {
-          const keys = new Set(
+          new Set(
             this.world.entityReverse[source.entity.id][source.type].keys()
           );
           if (
@@ -1277,7 +1279,7 @@ var world = class World {
     if (!this.refs[target]) {
       this.refs[target] = new Set();
     }
-    const eInst = this.getEntity(target);
+    this.getEntity(target);
     if (!this.entityReverse.hasOwnProperty(target)) {
       this.entityReverse[target] = {};
     }
@@ -1530,14 +1532,14 @@ var world = class World {
   }
 };
 
-const { EntityRef, EntitySet: EntitySet$1, EntityObject } = entityrefs;
+const { EntityRef, EntitySet, EntityObject } = entityrefs;
 var src = {
   World: world,
   System: system,
   Component: component,
   Entity: entity,
   EntityRef,
-  EntitySet: EntitySet$1,
+  EntitySet,
   EntityObject
 };
 
@@ -24906,7 +24908,7 @@ function WebGLRenderer( parameters ) {
 		state.scissor( _currentScissor.copy( _scissor ).multiplyScalar( _pixelRatio ).floor() );
 		state.viewport( _currentViewport.copy( _viewport ).multiplyScalar( _pixelRatio ).floor() );
 
-		info = new WebGLInfo( _gl );
+		info = new WebGLInfo();
 		properties = new WebGLProperties();
 		textures = new WebGLTextures( _gl, extensions, state, properties, capabilities, utils, info );
 		cubemaps = new WebGLCubeMaps( _this );
@@ -30769,10 +30771,10 @@ class PolyhedronBufferGeometry extends BufferGeometry {
 
 }
 
-const _v0$2 = new Vector3();
-const _v1$5 = new Vector3();
-const _normal$1 = new Vector3();
-const _triangle = new Triangle();
+new Vector3();
+new Vector3();
+new Vector3();
+new Triangle();
 
 /**
  * Port from https://github.com/mapbox/earcut (v2.2.2)
@@ -41695,396 +41697,6 @@ class Clock {
 
 }
 
-class Audio extends Object3D {
-
-	constructor( listener ) {
-
-		super();
-
-		this.type = 'Audio';
-
-		this.listener = listener;
-		this.context = listener.context;
-
-		this.gain = this.context.createGain();
-		this.gain.connect( listener.getInput() );
-
-		this.autoplay = false;
-
-		this.buffer = null;
-		this.detune = 0;
-		this.loop = false;
-		this.loopStart = 0;
-		this.loopEnd = 0;
-		this.offset = 0;
-		this.duration = undefined;
-		this.playbackRate = 1;
-		this.isPlaying = false;
-		this.hasPlaybackControl = true;
-		this.source = null;
-		this.sourceType = 'empty';
-
-		this._startedAt = 0;
-		this._progress = 0;
-		this._connected = false;
-
-		this.filters = [];
-
-	}
-
-	getOutput() {
-
-		return this.gain;
-
-	}
-
-	setNodeSource( audioNode ) {
-
-		this.hasPlaybackControl = false;
-		this.sourceType = 'audioNode';
-		this.source = audioNode;
-		this.connect();
-
-		return this;
-
-	}
-
-	setMediaElementSource( mediaElement ) {
-
-		this.hasPlaybackControl = false;
-		this.sourceType = 'mediaNode';
-		this.source = this.context.createMediaElementSource( mediaElement );
-		this.connect();
-
-		return this;
-
-	}
-
-	setMediaStreamSource( mediaStream ) {
-
-		this.hasPlaybackControl = false;
-		this.sourceType = 'mediaStreamNode';
-		this.source = this.context.createMediaStreamSource( mediaStream );
-		this.connect();
-
-		return this;
-
-	}
-
-	setBuffer( audioBuffer ) {
-
-		this.buffer = audioBuffer;
-		this.sourceType = 'buffer';
-
-		if ( this.autoplay ) this.play();
-
-		return this;
-
-	}
-
-	play( delay ) {
-
-		if ( delay === undefined ) delay = 0;
-
-		if ( this.isPlaying === true ) {
-
-			console.warn( 'THREE.Audio: Audio is already playing.' );
-			return;
-
-		}
-
-		if ( this.hasPlaybackControl === false ) {
-
-			console.warn( 'THREE.Audio: this Audio has no playback control.' );
-			return;
-
-		}
-
-		this._startedAt = this.context.currentTime + delay;
-
-		const source = this.context.createBufferSource();
-		source.buffer = this.buffer;
-		source.loop = this.loop;
-		source.loopStart = this.loopStart;
-		source.loopEnd = this.loopEnd;
-		source.onended = this.onEnded.bind( this );
-		source.start( this._startedAt, this._progress + this.offset, this.duration );
-
-		this.isPlaying = true;
-
-		this.source = source;
-
-		this.setDetune( this.detune );
-		this.setPlaybackRate( this.playbackRate );
-
-		return this.connect();
-
-	}
-
-	pause() {
-
-		if ( this.hasPlaybackControl === false ) {
-
-			console.warn( 'THREE.Audio: this Audio has no playback control.' );
-			return;
-
-		}
-
-		if ( this.isPlaying === true ) {
-
-			// update current progress
-
-			this._progress += Math.max( this.context.currentTime - this._startedAt, 0 ) * this.playbackRate;
-
-			if ( this.loop === true ) {
-
-				// ensure _progress does not exceed duration with looped audios
-
-				this._progress = this._progress % ( this.duration || this.buffer.duration );
-
-			}
-
-			this.source.stop();
-			this.source.onended = null;
-
-			this.isPlaying = false;
-
-		}
-
-		return this;
-
-	}
-
-	stop() {
-
-		if ( this.hasPlaybackControl === false ) {
-
-			console.warn( 'THREE.Audio: this Audio has no playback control.' );
-			return;
-
-		}
-
-		this._progress = 0;
-
-		this.source.stop();
-		this.source.onended = null;
-		this.isPlaying = false;
-
-		return this;
-
-	}
-
-	connect() {
-
-		if ( this.filters.length > 0 ) {
-
-			this.source.connect( this.filters[ 0 ] );
-
-			for ( let i = 1, l = this.filters.length; i < l; i ++ ) {
-
-				this.filters[ i - 1 ].connect( this.filters[ i ] );
-
-			}
-
-			this.filters[ this.filters.length - 1 ].connect( this.getOutput() );
-
-		} else {
-
-			this.source.connect( this.getOutput() );
-
-		}
-
-		this._connected = true;
-
-		return this;
-
-	}
-
-	disconnect() {
-
-		if ( this.filters.length > 0 ) {
-
-			this.source.disconnect( this.filters[ 0 ] );
-
-			for ( let i = 1, l = this.filters.length; i < l; i ++ ) {
-
-				this.filters[ i - 1 ].disconnect( this.filters[ i ] );
-
-			}
-
-			this.filters[ this.filters.length - 1 ].disconnect( this.getOutput() );
-
-		} else {
-
-			this.source.disconnect( this.getOutput() );
-
-		}
-
-		this._connected = false;
-
-		return this;
-
-	}
-
-	getFilters() {
-
-		return this.filters;
-
-	}
-
-	setFilters( value ) {
-
-		if ( ! value ) value = [];
-
-		if ( this._connected === true ) {
-
-			this.disconnect();
-			this.filters = value.slice();
-			this.connect();
-
-		} else {
-
-			this.filters = value.slice();
-
-		}
-
-		return this;
-
-	}
-
-	setDetune( value ) {
-
-		this.detune = value;
-
-		if ( this.source.detune === undefined ) return; // only set detune when available
-
-		if ( this.isPlaying === true ) {
-
-			this.source.detune.setTargetAtTime( this.detune, this.context.currentTime, 0.01 );
-
-		}
-
-		return this;
-
-	}
-
-	getDetune() {
-
-		return this.detune;
-
-	}
-
-	getFilter() {
-
-		return this.getFilters()[ 0 ];
-
-	}
-
-	setFilter( filter ) {
-
-		return this.setFilters( filter ? [ filter ] : [] );
-
-	}
-
-	setPlaybackRate( value ) {
-
-		if ( this.hasPlaybackControl === false ) {
-
-			console.warn( 'THREE.Audio: this Audio has no playback control.' );
-			return;
-
-		}
-
-		this.playbackRate = value;
-
-		if ( this.isPlaying === true ) {
-
-			this.source.playbackRate.setTargetAtTime( this.playbackRate, this.context.currentTime, 0.01 );
-
-		}
-
-		return this;
-
-	}
-
-	getPlaybackRate() {
-
-		return this.playbackRate;
-
-	}
-
-	onEnded() {
-
-		this.isPlaying = false;
-
-	}
-
-	getLoop() {
-
-		if ( this.hasPlaybackControl === false ) {
-
-			console.warn( 'THREE.Audio: this Audio has no playback control.' );
-			return false;
-
-		}
-
-		return this.loop;
-
-	}
-
-	setLoop( value ) {
-
-		if ( this.hasPlaybackControl === false ) {
-
-			console.warn( 'THREE.Audio: this Audio has no playback control.' );
-			return;
-
-		}
-
-		this.loop = value;
-
-		if ( this.isPlaying === true ) {
-
-			this.source.loop = this.loop;
-
-		}
-
-		return this;
-
-	}
-
-	setLoopStart( value ) {
-
-		this.loopStart = value;
-
-		return this;
-
-	}
-
-	setLoopEnd( value ) {
-
-		this.loopEnd = value;
-
-		return this;
-
-	}
-
-	getVolume() {
-
-		return this.gain.gain.value;
-
-	}
-
-	setVolume( value ) {
-
-		this.gain.gain.setTargetAtTime( value, this.context.currentTime, 0.01 );
-
-		return this;
-
-	}
-
-}
-
 function PropertyMixer( binding, typeName, valueSize ) {
 
 	this.binding = binding;
@@ -44919,29 +44531,6 @@ AnimationMixer.prototype = Object.assign( Object.create( EventDispatcher.prototy
 
 } );
 
-class Uniform {
-
-	constructor( value ) {
-
-		if ( typeof value === 'string' ) {
-
-			console.warn( 'THREE.Uniform: Type parameter is no longer needed.' );
-			value = arguments[ 1 ];
-
-		}
-
-		this.value = value;
-
-	}
-
-	clone() {
-
-		return new Uniform( this.value.clone === undefined ? this.value : this.value.clone() );
-
-	}
-
-}
-
 function InstancedInterleavedBuffer( array, stride, meshPerAttribute ) {
 
 	InterleavedBuffer.call( this, array, stride );
@@ -45515,6 +45104,159 @@ ImmediateRenderObject.prototype.constructor = ImmediateRenderObject;
 
 ImmediateRenderObject.prototype.isImmediateRenderObject = true;
 
+const _vector$9 = /*@__PURE__*/ new Vector3();
+const _boneMatrix = /*@__PURE__*/ new Matrix4();
+const _matrixWorldInv = /*@__PURE__*/ new Matrix4();
+
+
+class SkeletonHelper extends LineSegments {
+
+	constructor( object ) {
+
+		const bones = getBoneList( object );
+
+		const geometry = new BufferGeometry();
+
+		const vertices = [];
+		const colors = [];
+
+		const color1 = new Color( 0, 0, 1 );
+		const color2 = new Color( 0, 1, 0 );
+
+		for ( let i = 0; i < bones.length; i ++ ) {
+
+			const bone = bones[ i ];
+
+			if ( bone.parent && bone.parent.isBone ) {
+
+				vertices.push( 0, 0, 0 );
+				vertices.push( 0, 0, 0 );
+				colors.push( color1.r, color1.g, color1.b );
+				colors.push( color2.r, color2.g, color2.b );
+
+			}
+
+		}
+
+		geometry.setAttribute( 'position', new Float32BufferAttribute( vertices, 3 ) );
+		geometry.setAttribute( 'color', new Float32BufferAttribute( colors, 3 ) );
+
+		const material = new LineBasicMaterial( { vertexColors: true, depthTest: false, depthWrite: false, toneMapped: false, transparent: true } );
+
+		super( geometry, material );
+
+		this.type = 'SkeletonHelper';
+		this.isSkeletonHelper = true;
+
+		this.root = object;
+		this.bones = bones;
+
+		this.matrix = object.matrixWorld;
+		this.matrixAutoUpdate = false;
+
+	}
+
+	updateMatrixWorld( force ) {
+
+		const bones = this.bones;
+
+		const geometry = this.geometry;
+		const position = geometry.getAttribute( 'position' );
+
+		_matrixWorldInv.getInverse( this.root.matrixWorld );
+
+		for ( let i = 0, j = 0; i < bones.length; i ++ ) {
+
+			const bone = bones[ i ];
+
+			if ( bone.parent && bone.parent.isBone ) {
+
+				_boneMatrix.multiplyMatrices( _matrixWorldInv, bone.matrixWorld );
+				_vector$9.setFromMatrixPosition( _boneMatrix );
+				position.setXYZ( j, _vector$9.x, _vector$9.y, _vector$9.z );
+
+				_boneMatrix.multiplyMatrices( _matrixWorldInv, bone.parent.matrixWorld );
+				_vector$9.setFromMatrixPosition( _boneMatrix );
+				position.setXYZ( j + 1, _vector$9.x, _vector$9.y, _vector$9.z );
+
+				j += 2;
+
+			}
+
+		}
+
+		geometry.getAttribute( 'position' ).needsUpdate = true;
+
+		super.updateMatrixWorld( force );
+
+	}
+
+}
+
+
+function getBoneList( object ) {
+
+	const boneList = [];
+
+	if ( object && object.isBone ) {
+
+		boneList.push( object );
+
+	}
+
+	for ( let i = 0; i < object.children.length; i ++ ) {
+
+		boneList.push.apply( boneList, getBoneList( object.children[ i ] ) );
+
+	}
+
+	return boneList;
+
+}
+
+class GridHelper extends LineSegments {
+
+	constructor( size, divisions, color1, color2 ) {
+
+		size = size || 10;
+		divisions = divisions || 10;
+		color1 = new Color( color1 !== undefined ? color1 : 0x444444 );
+		color2 = new Color( color2 !== undefined ? color2 : 0x888888 );
+
+		const center = divisions / 2;
+		const step = size / divisions;
+		const halfSize = size / 2;
+
+		const vertices = [], colors = [];
+
+		for ( let i = 0, j = 0, k = - halfSize; i <= divisions; i ++, k += step ) {
+
+			vertices.push( - halfSize, 0, k, halfSize, 0, k );
+			vertices.push( k, 0, - halfSize, k, 0, halfSize );
+
+			const color = i === center ? color1 : color2;
+
+			color.toArray( colors, j ); j += 3;
+			color.toArray( colors, j ); j += 3;
+			color.toArray( colors, j ); j += 3;
+			color.toArray( colors, j ); j += 3;
+
+		}
+
+		const geometry = new BufferGeometry();
+		geometry.setAttribute( 'position', new Float32BufferAttribute( vertices, 3 ) );
+		geometry.setAttribute( 'color', new Float32BufferAttribute( colors, 3 ) );
+
+		const material = new LineBasicMaterial( { vertexColors: true, toneMapped: false } );
+
+		super( geometry, material );
+
+		this.type = 'GridHelper';
+
+	}
+
+}
+
 //
 
 Curve.create = function ( construct, getPoint ) {
@@ -45587,6 +45329,10 @@ Object.assign( Path.prototype, {
 
 } );
 
+Object.create( CatmullRomCurve3.prototype );
+
+Object.create( CatmullRomCurve3.prototype );
+
 //
 
 function Spline( points ) {
@@ -45619,6 +45365,18 @@ Object.assign( Spline.prototype, {
 	}
 
 } );
+
+GridHelper.prototype.setColors = function () {
+
+	console.error( 'THREE.GridHelper: setColors() has been deprecated, pass them in the constructor instead.' );
+
+};
+
+SkeletonHelper.prototype.update = function () {
+
+	console.error( 'THREE.SkeletonHelper: update() no longer needs to be called.' );
+
+};
 
 //
 
@@ -46643,28 +46401,6 @@ Object.assign( Scene.prototype, {
 
 //
 
-Object.defineProperties( Uniform.prototype, {
-
-	dynamic: {
-		set: function () {
-
-			console.warn( 'THREE.Uniform: .dynamic has been removed. Use object.onBeforeRender() instead.' );
-
-		}
-	},
-	onUpdate: {
-		value: function () {
-
-			console.warn( 'THREE.Uniform: .onUpdate() has been removed. Use object.onBeforeRender() instead.' );
-			return this;
-
-		}
-	}
-
-} );
-
-//
-
 Object.defineProperties( Material.prototype, {
 
 	wrapAround: {
@@ -47223,35 +46959,6 @@ Object.defineProperties( WebGLRenderTarget.prototype, {
 
 			console.warn( 'THREE.WebGLRenderTarget: .generateMipmaps is now .texture.generateMipmaps.' );
 			this.texture.generateMipmaps = value;
-
-		}
-	}
-
-} );
-
-//
-
-Object.defineProperties( Audio.prototype, {
-
-	load: {
-		value: function ( file ) {
-
-			console.warn( 'THREE.Audio: .load has been deprecated. Use THREE.AudioLoader instead.' );
-			const scope = this;
-			const audioLoader = new AudioLoader();
-			audioLoader.load( file, function ( buffer ) {
-
-				scope.setBuffer( buffer );
-
-			} );
-			return this;
-
-		}
-	},
-	startTime: {
-		set: function () {
-
-			console.warn( 'THREE.Audio: .startTime is now .play( delay ).' );
 
 		}
 	}
@@ -48770,11 +48477,11 @@ class MeshFactory {
     }
 
     static createShip1(config = {}) {
-        const body_color = config.body_color || Palette.light;
-        const line_color = config.line_color || Palette.dark;
-        const cockpit_color = config.cockpit_color || Palette.light_blue;
+        config.body_color || Palette.light;
+        config.line_color || Palette.dark;
+        config.cockpit_color || Palette.light_blue;
 
-        const position = config.position || new Vector3();
+        config.position || new Vector3();
 
         const mesh = new Mesh();
         
@@ -49849,11 +49556,11 @@ class MiniConsole {
         this.output.style.width = '100%';
         this.output.style.flexDirection = 'column-reverse';
         this.output.onclick = () => this.toggleSize();
-        this.maximize();
+        this.minimize();
         this.hide();
-        
+
         document.body.insertBefore(this.output, document.body.firstChild);
-        
+
         // Reference to native method(s)
         this.log = console.log;
         console.log = (...e) => this.consoleCatcher('', ...e);
@@ -51244,7 +50951,7 @@ var CopyShader = {
 
 };
 
-function Pass() {
+function Pass$1() {
 
 	// if set to true, the pass is processed by the composer
 	this.enabled = true;
@@ -51260,7 +50967,7 @@ function Pass() {
 
 }
 
-Object.assign( Pass.prototype, {
+Object.assign( Pass$1.prototype, {
 
 	setSize: function ( /* width, height */ ) {},
 
@@ -51278,7 +50985,7 @@ Object.assign( Pass.prototype, {
 // done to make examples/js code work. Normally, FullScreenQuad should be exported
 // from this module like Pass.
 
-Pass.FullScreenQuad = ( function () {
+Pass$1.FullScreenQuad = ( function () {
 
 	var camera = new OrthographicCamera( - 1, 1, 1, - 1, 0, 1 );
 	var geometry = new PlaneBufferGeometry( 2, 2 );
@@ -51327,7 +51034,7 @@ Pass.FullScreenQuad = ( function () {
 
 var ShaderPass = function ( shader, textureID ) {
 
-	Pass.call( this );
+	Pass$1.call( this );
 
 	this.textureID = ( textureID !== undefined ) ? textureID : "tDiffuse";
 
@@ -51352,11 +51059,11 @@ var ShaderPass = function ( shader, textureID ) {
 
 	}
 
-	this.fsQuad = new Pass.FullScreenQuad( this.material );
+	this.fsQuad = new Pass$1.FullScreenQuad( this.material );
 
 };
 
-ShaderPass.prototype = Object.assign( Object.create( Pass.prototype ), {
+ShaderPass.prototype = Object.assign( Object.create( Pass$1.prototype ), {
 
 	constructor: ShaderPass,
 
@@ -51390,7 +51097,7 @@ ShaderPass.prototype = Object.assign( Object.create( Pass.prototype ), {
 
 var MaskPass = function ( scene, camera ) {
 
-	Pass.call( this );
+	Pass$1.call( this );
 
 	this.scene = scene;
 	this.camera = camera;
@@ -51402,7 +51109,7 @@ var MaskPass = function ( scene, camera ) {
 
 };
 
-MaskPass.prototype = Object.assign( Object.create( Pass.prototype ), {
+MaskPass.prototype = Object.assign( Object.create( Pass$1.prototype ), {
 
 	constructor: MaskPass,
 
@@ -51472,13 +51179,13 @@ MaskPass.prototype = Object.assign( Object.create( Pass.prototype ), {
 
 var ClearMaskPass = function () {
 
-	Pass.call( this );
+	Pass$1.call( this );
 
 	this.needsSwap = false;
 
 };
 
-ClearMaskPass.prototype = Object.create( Pass.prototype );
+ClearMaskPass.prototype = Object.create( Pass$1.prototype );
 
 Object.assign( ClearMaskPass.prototype, {
 
@@ -51710,7 +51417,7 @@ Object.assign( EffectComposer.prototype, {
 } );
 
 
-var Pass$1 = function () {
+var Pass = function () {
 
 	// if set to true, the pass is processed by the composer
 	this.enabled = true;
@@ -51726,7 +51433,7 @@ var Pass$1 = function () {
 
 };
 
-Object.assign( Pass$1.prototype, {
+Object.assign( Pass.prototype, {
 
 	setSize: function ( /* width, height */ ) {},
 
@@ -51739,7 +51446,7 @@ Object.assign( Pass$1.prototype, {
 } );
 
 // Helper for passes that need to fill the viewport with a single quad.
-Pass$1.FullScreenQuad = ( function () {
+Pass.FullScreenQuad = ( function () {
 
 	var camera = new OrthographicCamera( - 1, 1, 1, - 1, 0, 1 );
 	var geometry = new PlaneBufferGeometry( 2, 2 );
@@ -51788,7 +51495,7 @@ Pass$1.FullScreenQuad = ( function () {
 
 var RenderPass = function ( scene, camera, overrideMaterial, clearColor, clearAlpha ) {
 
-	Pass.call( this );
+	Pass$1.call( this );
 
 	this.scene = scene;
 	this.camera = camera;
@@ -51804,7 +51511,7 @@ var RenderPass = function ( scene, camera, overrideMaterial, clearColor, clearAl
 
 };
 
-RenderPass.prototype = Object.assign( Object.create( Pass.prototype ), {
+RenderPass.prototype = Object.assign( Object.create( Pass$1.prototype ), {
 
 	constructor: RenderPass,
 
@@ -51936,7 +51643,7 @@ var LuminosityHighPassShader = {
  */
 var UnrealBloomPass = function ( resolution, strength, radius, threshold ) {
 
-	Pass.call( this );
+	Pass$1.call( this );
 
 	this.strength = ( strength !== undefined ) ? strength : 1;
 	this.radius = radius;
@@ -52063,11 +51770,11 @@ var UnrealBloomPass = function ( resolution, strength, radius, threshold ) {
 
 	this.basic = new MeshBasicMaterial();
 
-	this.fsQuad = new Pass.FullScreenQuad( null );
+	this.fsQuad = new Pass$1.FullScreenQuad( null );
 
 };
 
-UnrealBloomPass.prototype = Object.assign( Object.create( Pass.prototype ), {
+UnrealBloomPass.prototype = Object.assign( Object.create( Pass$1.prototype ), {
 
 	constructor: UnrealBloomPass,
 
