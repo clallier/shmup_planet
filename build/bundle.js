@@ -47045,13 +47045,14 @@ class Move extends src.Component {
 }
 
 class MoveAlongRing extends src.Component {
+    // Do not change values here, change in entitie definitions instead
     static properties = {
         radius: 100,
         angle: 0,
         min_angle: 0,
         max_angle: 2 * Math.PI,
-        force : 5,
-        max_velocity : 1,
+        force: 5,
+        max_velocity: 1,
         decay: 0,
         velocity: 0
     }
@@ -48588,9 +48589,9 @@ class EntityFactory {
             }, {
                 type: 'MoveAlongRing',
                 radius: 160,
-                force : 10,
-                max_velocity : 3,
-                decay: 0.94
+                force: 10,
+                max_velocity: 5,
+                decay: 0.96
             }, {
                 type: 'Weapon'
             },
@@ -48892,7 +48893,7 @@ class ThreeSystem extends src.System {
 
         this.cameraTargetQy = this.createQuery()
             .fromAll('MoveAlongRing', 'CameraTarget');
-            
+
         this.screenShakeQy = this.createQuery()
             .fromAll('ThreeComponent', 'ScreenShake').persist();
 
@@ -48904,22 +48905,22 @@ class ThreeSystem extends src.System {
         const loop = this.world.getEntity('game').getOne('GameLoop');
 
         this.changes.forEach(c => {
-            if(c.op == 'add' && c.type == 'ThreeComponent') {
+            if (c.op == 'add' && c.type == 'ThreeComponent') {
                 const component = this.world.getComponent(c.component);
                 const mesh = component.mesh;
                 mesh.name = component.id;
-                if(component.position != null)
+                if (component.position != null)
                     mesh.position.copy(component.position);
-                if(component.rotation != null)
+                if (component.rotation != null)
                     mesh.lookAt(component.rotation);
                 this.scene.add(mesh);
             }
 
             else if (c.op == 'add' && c.type == 'Destroy') {
                 const e = this.world.getEntity(c.entity);
-                if(e == null) return;
+                if (e == null) return;
                 const component = e.getOne('ThreeComponent');
-                if(component == null) return;
+                if (component == null) return;
                 // console.log(`removed mesh from ${c.entity}`);
                 const mesh = component.mesh;
                 mesh.visible = false;
@@ -48932,7 +48933,7 @@ class ThreeSystem extends src.System {
 
         this.updateShaderQy.execute().forEach(e => {
             const component = e.getOne('ThreeComponent');
-            if(component == null) return;
+            if (component == null) return;
             component.mesh.material.uniforms['time'].value = loop.time;
         });
 
@@ -48940,10 +48941,10 @@ class ThreeSystem extends src.System {
             const component = e.getOne('TweenColor');
             const three = e.getOne('ThreeComponent');
 
-            if(component == null) return;
-            if(three == null) return;
+            if (component == null) return;
+            if (three == null) return;
 
-            if(component.tween == null)
+            if (component.tween == null)
                 component.tween = new Tween(component.start, component.end);
 
             const tween = component.tween;
@@ -48959,14 +48960,14 @@ class ThreeSystem extends src.System {
         // (cause of updateProjectionMatrix) 
         this.cameraTargetQy.execute().forEach(e => {
             const move = e.getOne('MoveAlongRing');
-            if(move == null) return;
- 
+            if (move == null) return;
+
             // 50 < fov < 100 - threescene.resize()
             let fov = this.threeScene.fov;
             // velocity (max: 0.3)
             const vel = move.velocity * loop.delta;
             // velocity * velocity (max: 324)
-            const v = (60 * vel) ** 2;
+            const v = (300 * vel) ** 2;
             // camera "dist" (~20)
             const d = 120 - fov;
             // camera height (~20)
@@ -48977,14 +48978,14 @@ class ThreeSystem extends src.System {
             const futur_angle = move.angle + vel;
             // fov
             fov = Math.min(fov + 4 * v, fov + 20);
-            // console.log(`v:${v.toFixed(1)} d:${d.toFixed(1)}, h:${h.toFixed(1)}, r:${r.toFixed(1)}, a:${futur_angle.toFixed(1)}, fov:${fov}`);  
-        
+            //console.log(`v:${v.toFixed(1)} d:${d.toFixed(1)}, h:${h.toFixed(1)}, r:${r.toFixed(1)}, a:${futur_angle.toFixed(1)}, fov:${fov}`);
+
             this.target.y = h /*+ Math.sin(loop.time) * 1.7*/;
             this.target.x = Math.cos(futur_angle) * r;
             this.target.z = Math.sin(futur_angle) * r;
             this.camera.position.lerp(this.target, 0.8);
             this.camera.lookAt(0, 0, 0);
-       
+
             this.camera.fov = Tween.lerp(this.camera.fov, fov, .8);
             // console.log(`fov:${this.camera.fov.toFixed(1)}`);
             this.camera.updateProjectionMatrix();
@@ -48996,15 +48997,15 @@ class ThreeSystem extends src.System {
             const screenShake = e.getOne('ScreenShake');
             const component = e.getOne('ThreeComponent');
 
-            if(screenShake == null) return;
-            if(component == null) return;
+            if (screenShake == null) return;
+            if (component == null) return;
 
             const p = screenShake.power;
-            this.camera.position.x += Math.random() * p - p/2;
-            this.camera.position.y += Math.random() * p - p/2;
-            this.camera.position.z += Math.random() * p - p/2;
+            this.camera.position.x += Math.random() * p - p / 2;
+            this.camera.position.y += Math.random() * p - p / 2;
+            this.camera.position.z += Math.random() * p - p / 2;
         });
-      }
+    }
 }
 
 class MoveSystem extends src.System {
@@ -49022,10 +49023,10 @@ class MoveSystem extends src.System {
         this.moveAlongRingQy.execute().forEach(e => {
             const move = e.getOne('MoveAlongRing');
             const component = e.getOne('ThreeComponent');
-            if(move == null) return;
-            if(component == null) return;
+            if (move == null) return;
+            if (component == null) return;
             const mesh = component.mesh;
-            
+
             // max velocity
             if (move.velocity > move.max_velocity) {
                 move.velocity = move.max_velocity;
@@ -49053,29 +49054,26 @@ class MoveSystem extends src.System {
             mesh.position.z = Math.sin(move.angle) * move.radius;
             mesh.position.y = 2 + Math.sin(loop.time) * 2;
             mesh.lookAt(0, 0, 0);
-            
-            move.update();
-          });
 
-          this.moveQy.execute().forEach(e => {
+            move.update();
+        });
+
+        this.moveQy.execute().forEach(e => {
             const move = e.getOne('Move');
             const component = e.getOne('ThreeComponent');
-            if(move == null) return;
-            if(component == null) return;
+            if (move == null) return;
+            if (component == null) return;
 
             const mesh = component.mesh;
             move.velocity.y += move.gravity;
             const vel = move.velocity.clone().multiplyScalar(loop.delta);
-            
+
             // add velocity to position
             mesh.position.add(vel);
             mesh.rotateZ(move.tilt_angle);
-            
-            // decay
-            move.velocity.multiplyScalar(move.decay);
-        
+
             move.update();
-          });
+        });
     }
 }
 

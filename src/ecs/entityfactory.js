@@ -83,9 +83,9 @@ export default class EntityFactory {
             }, {
                 type: 'MoveAlongRing',
                 radius: 160,
-                force : 10,
-                max_velocity : 3,
-                decay: 0.94
+                force: 10,
+                max_velocity: 5,
+                decay: 0.96
             }, {
                 type: 'Weapon'
             },

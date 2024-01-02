@@ -15,10 +15,10 @@ export default class MoveSystem extends System {
         this.moveAlongRingQy.execute().forEach(e => {
             const move = e.getOne('MoveAlongRing');
             const component = e.getOne('ThreeComponent');
-            if(move == null) return;
-            if(component == null) return;
+            if (move == null) return;
+            if (component == null) return;
             const mesh = component.mesh;
-            
+
             // max velocity
             if (move.velocity > move.max_velocity) {
                 move.velocity = move.max_velocity;
@@ -46,28 +46,25 @@ export default class MoveSystem extends System {
             mesh.position.z = Math.sin(move.angle) * move.radius;
             mesh.position.y = 2 + Math.sin(loop.time) * 2;
             mesh.lookAt(0, 0, 0);
-            
-            move.update();
-          });
 
-          this.moveQy.execute().forEach(e => {
+            move.update();
+        });
+
+        this.moveQy.execute().forEach(e => {
             const move = e.getOne('Move');
             const component = e.getOne('ThreeComponent');
-            if(move == null) return;
-            if(component == null) return;
+            if (move == null) return;
+            if (component == null) return;
 
             const mesh = component.mesh;
             move.velocity.y += move.gravity;
             const vel = move.velocity.clone().multiplyScalar(loop.delta)
-            
+
             // add velocity to position
             mesh.position.add(vel);
             mesh.rotateZ(move.tilt_angle);
-            
-            // decay
-            move.velocity.multiplyScalar(move.decay);
-        
+
             move.update();
-          });
+        });
     }
 }

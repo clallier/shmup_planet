@@ -17,4 +17,4 @@ yarn watch
 # deploy on firebase
 # (need firebase.cli)
 yarn deploy
-``````
+```
